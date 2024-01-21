@@ -1,0 +1,5 @@
+dotenv
+ebooklib
+html2text
+jinja2
+requests
