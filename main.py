@@ -42,6 +42,25 @@ parser.add_argument("--description", help="Description of the operations", requi
 
 args = parser.parse_args()
 
+# *****************************************************************************************
+# Utiltiy functions
+# *****************************************************************************************
+# If the db exists; if not, print error and exit.  Otherwise sqlite silently create a new file.
+def check_db(fn):
+    if not os.path.isfile(fn):
+        console.log("Database file", fn, "does not exist.  Check the filename or run init to create a new database.")
+        exit(1)
+
+def load(fn):
+    if not os.path.isfile(fn):
+        raise Exception(f"File does not exist:{fn}" )
+
+    # Load and return the file
+    with open(fn, "r") as f:
+        data = f.read()
+    return data
+
+
 
 # *****************************************************************************************
 # Block operations
@@ -49,12 +68,8 @@ args = parser.parse_args()
 
 # Initialize the database by reading in the schema and creating the database
 def init_db():
-    # read the schema sql file
-    with open("sql/schema.sql", "r") as schema_file:
-        # read the schema using the schema loaded
-        schema = schema_file.read()
    
-    # Attempt to back up the existing database
+    # Back up the existing database
     try:
         now = time.strftime("%Y%m%d-%H%M%S")
         # copy the db to a backup file
@@ -65,31 +80,27 @@ def init_db():
     except:
         pass
 
-    # create the database
+    # Initialize the new database
     conn = sqlite3.connect(args.db)
     c = conn.cursor()
-    c.executescript(schema)
+    sql = load("sql/schema.sql")
+    c.executescript(sql)
     conn.commit()
     conn.close()
 
-# If the db exists; if not, print error and exit.  Otherwise sqlite silently create a new file.
-def check_db(fn):
-    if not os.path.isfile(fn):
-        console.log("Database file", fn, "does not exist.  Check the filename or run init to create a new database.")
-        exit(1)
 
 # Write an operation to the database
 def create_operation(c, operation, description=args.description):
-    # Insert the operation into the database
-    c.execute("INSERT INTO operations (operation, description) VALUES (?, ?)", (operation, description))
+    sql = load("sql/create_operation.sql")
+    c.execute(sql, (operation, description))
     operation_id = c.lastrowid
     return operation_id
 
 # Inserts into the blocks table and returns the block id
 def create_block(c, operation_id, block, position, tag):
-    tokens = len(str(block).split(" "))
-    # Insert the operation into the database
-    c.execute("INSERT INTO blocks (operation_id, position, block, token_count, tag) VALUES (?, ?, ?, ?, ?)", (operation_id, position, block, tokens, tag))
+    sql = load("sql/create_block.sql")
+    token_count = len(str(block).split(" "))
+    c.execute(sql, (operation_id, position, block, token_count, tag))
     block_id = c.lastrowid
     return block_id
 
@@ -130,7 +141,6 @@ def load_action():
         console.log("Unable to process request:", e)
         conn.rollback()
     finally:
-        # IF the connection is open, then close it
         conn.close()
 
 
