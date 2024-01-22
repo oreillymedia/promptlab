@@ -5,13 +5,12 @@ from dotenv import load_dotenv, find_dotenv
 import ebooklib
 from ebooklib import epub
 from bs4 import BeautifulSoup
-import re
 import sqlite3
 import time
 import shutil
 import os
 from jinja2 import Template
-import requests
+
 
 load_dotenv(find_dotenv())
 
@@ -61,33 +60,9 @@ def load(fn):
     return data
 
 
-
 # *****************************************************************************************
 # Block operations
 # *****************************************************************************************
-
-# Initialize the database by reading in the schema and creating the database
-def init_db():
-   
-    # Back up the existing database
-    try:
-        now = time.strftime("%Y%m%d-%H%M%S")
-        # copy the db to a backup file
-        backup_fn = args.db + "." + now + ".bak"
-        console.log("Backing up database to", backup_fn)
-        shutil.copyfile(args.db, backup_fn)
-        os.remove(args.db)
-    except:
-        pass
-
-    # Initialize the new database
-    conn = sqlite3.connect(args.db)
-    c = conn.cursor()
-    sql = load("sql/schema.sql")
-    c.executescript(sql)
-    conn.commit()
-    conn.close()
-
 
 # Write an operation to the database
 def create_operation(c, operation, description=args.description):
@@ -108,21 +83,29 @@ def create_block(c, operation_id, block, position, tag):
 # Action operations 
 # *****************************************************************************************
 
-
-# Extract the contents of an epub file into the database
-def load_epub(c, fn, operation_id):
-    # Open the database
-    book = epub.read_epub(args.fn)
-    idx = 0
-    for item in book.get_items():
-        if item.get_type() == ebooklib.ITEM_DOCUMENT:
-            html = item.get_content()
-            create_block(c, operation_id, html, idx, item.get_name())
-            idx += 1
+# Initialize the database by reading in the schema and creating the database
+def action_init():
+    # Back up the existing database
+    try:
+        now = time.strftime("%Y%m%d-%H%M%S")
+        # copy the db to a backup file
+        backup_fn = args.db + "." + now + ".bak"
+        console.log("Backing up database to", backup_fn)
+        shutil.copyfile(args.db, backup_fn)
+        os.remove(args.db)
+    except:
+        pass
+    # Initialize the new database
+    conn = sqlite3.connect(args.db)
+    c = conn.cursor()
+    sql = load("sql/schema.sql")
+    c.executescript(sql)
+    conn.commit()
+    conn.close()
 
 # Loads a file into the database
-def load_action():
-    console.log("Reading file", args.fn)
+def action_load():
+    console.log("Loading file", args.fn)
     # If the load fails then we want to rollback the entire transaction
     try:
         conn = sqlite3.connect(args.db)
@@ -130,11 +113,14 @@ def load_action():
         operation_id = create_operation(c, "read", "Loading file " + args.fn)
         # Load the file based on the filetype
         if args.fn.endswith(".epub"):
-            load_epub(c, args.fn, operation_id)
+            book = epub.read_epub(args.fn)
+            for idx,item in enumerate(book.get_items()):
+                if item.get_type() == ebooklib.ITEM_DOCUMENT:
+                    html = item.get_content()
+                    create_block(c, operation_id, html, idx, item.get_name())
             conn.commit()
         else:
-            with open(args.fn, "r") as f:
-                data = f.read()
+            data = load(args.fn)
             create_block(c, operation_id, data, 0, args.fn)
             conn.commit()
     except Exception as e:
@@ -150,7 +136,7 @@ def load_action():
 # --------------------------------------------------------------------------------------------
 
 if args.action == 'init':
-    init_db()
+    action_init()
     console.log("Initialized database")
     exit(0)
 
@@ -159,8 +145,7 @@ if args.action == 'load':
     if args.fn is None:
         console.log("You must provide a --fn argument for the file to read")
         exit(1)
-
-    load_action()
+    action_load()
     
 
     
