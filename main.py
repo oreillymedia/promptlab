@@ -29,7 +29,8 @@ parser.add_argument(
     "action",
     choices=[
         "init",
-        "load"
+        "load",
+        "transform"
     ],
     help="The action to perform ",
 )
@@ -79,6 +80,15 @@ def create_block(c, operation_id, block, position, tag):
     block_id = c.lastrowid
     return block_id
 
+def execute(script,block):
+    # Create a dictionary to use as the local variables
+    loc = {}
+    # Execute the code, using the block as the input
+    loc['block'] = block
+    exec(script, globals(), loc)
+    # Return the result
+    return loc['result']
+
 # *****************************************************************************************
 # Action operations 
 # *****************************************************************************************
@@ -120,8 +130,8 @@ def action_load():
                     create_block(c, operation_id, html, idx, item.get_name())
             conn.commit()
         else:
-            data = load(args.fn)
-            create_block(c, operation_id, data, 0, args.fn)
+            txt = load(args.fn)
+            create_block(c, operation_id, txt, 0, args.fn)
             conn.commit()
     except Exception as e:
         console.log("Unable to process request:", e)
@@ -130,6 +140,20 @@ def action_load():
         conn.close()
 
 
+def action_transform():
+    console.log("Transforming file", args.fn)
+    script = load("transformations/html2txt.py")
+    # If the load fails then we want to rollback the entire transaction
+    conn = sqlite3.connect(args.db)
+    c = conn.cursor()
+    # Select all items in the block table
+    c.execute("SELECT id, block FROM blocks where tag = 'test.html'")
+    # Loop through each item
+    for row in c:
+        # Execute the script
+        result = execute(script, row[1])
+        # Write the result to the database
+        print(result)
 
 # --------------------------------------------------------------------------------------------
 # Begin actions
@@ -146,6 +170,13 @@ if args.action == 'load':
         console.log("You must provide a --fn argument for the file to read")
         exit(1)
     action_load()
+
+if args.action =='transform':
+    check_db(args.db)
+    if args.fn is None:
+        console.log("You must provide a --fn argument for the file to read")
+        exit(1)
+    action_transform()
     
 
     
