@@ -3,3 +3,5 @@ ebooklib
 html2text
 jinja2
 requests
+bs4
+markdownify

@@ -37,6 +37,10 @@ In the case of an epub, all the `ITEM_DOCUMENT` files are conacatenated into a s
 python main.py load --file=example.epub
 ```
 
+### Transformations
+
+python main.py transform --script=transformations/token_split.py
+
 ## Useful queries
 
 ```

@@ -1,6 +1,7 @@
 import argparse
 from rich.console import Console
 from rich import print
+from rich.table import Table
 from dotenv import load_dotenv, find_dotenv
 import ebooklib
 from ebooklib import epub
@@ -10,6 +11,8 @@ import time
 import shutil
 import os
 from jinja2 import Template
+from markdownify import markdownify as md
+
 
 
 load_dotenv(find_dotenv())
@@ -30,7 +33,9 @@ parser.add_argument(
     choices=[
         "init",
         "load",
-        "transform"
+        "transform",
+        "list",
+        "undo",
     ],
     help="The action to perform ",
 )
@@ -39,6 +44,8 @@ parser.add_argument(
 parser.add_argument("--db", help="The database file", required=False, default="promptlab.db")
 parser.add_argument("--fn", help="Filename", required=False, default="test.epub")
 parser.add_argument("--description", help="Description of the operations", required=False, default="")
+parser.add_argument("--tag", help="Tag to filter on", required=False, default="*")
+parser.add_argument("--script", help="Script to execute", required=False)
 
 args = parser.parse_args()
 
@@ -54,7 +61,6 @@ def check_db(fn):
 def load(fn):
     if not os.path.isfile(fn):
         raise Exception(f"File does not exist:{fn}" )
-
     # Load and return the file
     with open(fn, "r") as f:
         data = f.read()
@@ -89,6 +95,22 @@ def execute(script,block):
     # Return the result
     return loc['result']
 
+def fetch_blocks(tag="*", latest=True):
+    # Replace the * with a pct, which is what sqlite3 requires for wildcards
+    tag = tag.replace("*", "%")
+    if latest:
+        sql = load("sql/fetch_latest_blocks.sql")
+    else:
+        sql = load("sql/fetch_blocks.sql")
+    # Grab the data
+    conn = sqlite3.connect(args.db)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute(sql, (tag,))
+    results = c.fetchall()
+    conn.close()
+    return results
+
 # *****************************************************************************************
 # Action operations 
 # *****************************************************************************************
@@ -119,8 +141,10 @@ def action_load():
     # If the load fails then we want to rollback the entire transaction
     try:
         conn = sqlite3.connect(args.db)
+        conn.isolation_level = None
         c = conn.cursor()
-        operation_id = create_operation(c, "read", "Loading file " + args.fn)
+        c.execute("BEGIN")
+        operation_id = create_operation(c, "load", "Loading file " + args.fn)
         # Load the file based on the filetype
         if args.fn.endswith(".epub"):
             book = epub.read_epub(args.fn)
@@ -140,20 +164,67 @@ def action_load():
         conn.close()
 
 
-def action_transform():
+def action_transform(script):
     console.log("Transforming file", args.fn)
-    script = load("transformations/html2txt.py")
-    # If the load fails then we want to rollback the entire transaction
+    script = load(script)
+    blocks = fetch_blocks(args.tag)
+    # Open a new connection
+    conn = sqlite3.connect(args.db)
+    conn.isolation_level = None
+    c = conn.cursor()
+    c.execute("BEGIN")
+    operation_id = create_operation(c, "transform", "Transforming file " + args.fn)
+    try:
+        for b in blocks:
+            result = execute(script, b['block'])
+            if type(result) is list:
+                for idx,r in enumerate(result):
+                    create_block(c, operation_id, r, idx, b['tag'])
+            elif type(result) is str:
+                create_block(c, operation_id, result, 0, b['tag'])
+            else:
+                # Raise an error
+                raise Exception(f"Result is not a list or string: {type(result)}")
+        conn.commit()
+    except Exception as e:
+        console.log("Unable to process request:", e)
+        conn.rollback()
+    finally:
+        conn.close()
+
+
+def action_list():
+    console.log("Listing blocks")
+    blocks = fetch_blocks(args.tag)
+    table = Table(title="Blocks", header_style="bold magenta")
+    table.add_column("operation_id", justify="center")
+    table.add_column("operation", justify="center")
+    table.add_column("block_id", justify="center", style="cyan")
+    table.add_column("tag", justify="left")
+    table.add_column("token_count", justify="right")
+    table.add_column("block", justify="left")
+    for block in blocks:
+        # Strip and \n and replace with " " for block
+        b = str(block["block"]).replace("\n", " ")
+        table.add_row(
+            str(block["operation_id"]),
+            block["operation"],
+            str(block["id"]),
+            block["tag"],
+            '{:,}'.format(block["token_count"]),
+            b[:20],
+        )
+    console.print(table)
+
+def action_undo():
+    console.log("Undoing last operation")
+    sql = load("sql/undo_operation.sql")
     conn = sqlite3.connect(args.db)
     c = conn.cursor()
-    # Select all items in the block table
-    c.execute("SELECT id, block FROM blocks where tag = 'test.html'")
-    # Loop through each item
-    for row in c:
-        # Execute the script
-        result = execute(script, row[1])
-        # Write the result to the database
-        print(result)
+    c.execute("PRAGMA foreign_keys=ON");
+    c.execute(sql)
+    conn.commit()
+    conn.close()
 
 # --------------------------------------------------------------------------------------------
 # Begin actions
@@ -176,7 +247,20 @@ if args.action =='transform':
     if args.fn is None:
         console.log("You must provide a --fn argument for the file to read")
         exit(1)
-    action_transform()
+    if args.script is None:
+        console.log("You must provide a --script argument for the script to execute")
+        exit(1)
+    action_transform(args.script)
+
+if args.action == 'list':
+    check_db(args.db)
+    action_list()
+    exit(0)
+
+if args.action == 'undo':
+    check_db(args.db)
+    action_undo()
+    exit(0)
     
 
     

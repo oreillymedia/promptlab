@@ -1,0 +1,1 @@
+delete from operations where id = (select max(id) from operations);
