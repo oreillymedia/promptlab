@@ -1,4 +1,4 @@
 INSERT INTO operations 
-   (operation, description) 
+   (operation, description, arguments) 
 VALUES 
-   (?, ?)
+   (?, ?, ?)

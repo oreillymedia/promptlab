@@ -2,6 +2,7 @@ create table if not exists operations (
     id integer primary key autoincrement,
     operation text,
     description text,
+    arguments text,
     created_at datetime DEFAULT CURRENT_TIMESTAMP
 );
 

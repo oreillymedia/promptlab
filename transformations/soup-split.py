@@ -1,5 +1,6 @@
-
-
+#
+# Split an HTML into blocks based on the h1 and h2 tags
+#
 def main(b):
     # Construct a BeautifulSoup out of the raw HTML
     soup = BeautifulSoup(b, 'html.parser')
@@ -10,7 +11,7 @@ def main(b):
         s += repr(tag).replace("\n","")
         tag = tag.nextSibling
         if tag is not None and tag.name in ["h1", "h2"]:
-            blocks.append(s)
+            blocks.append(s.replace("'\n'","\n"))
             s = ""
     return blocks
 

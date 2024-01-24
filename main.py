@@ -14,6 +14,7 @@ from jinja2 import Template
 from markdownify import markdownify as md
 import markdown
 import re
+import sys
 
 
 
@@ -78,7 +79,7 @@ def load(fn):
 # Write an operation to the database
 def create_operation(c, operation, description=args.description):
     sql = load("sql/create_operation.sql")
-    c.execute(sql, (operation, description))
+    c.execute(sql, (operation, description, " ".join(sys.argv[])))
     operation_id = c.lastrowid
     return operation_id
 
@@ -249,6 +250,8 @@ def action_get():
     # Pull out the block element into it's own list
     out = [b['block'] for b in blocks]
     console.print("\n".join(out))
+    # https://stackoverflow.com/questions/39120363/python-argparse-raw-string-input
+    print(sys.argv[1:])
 
 
 
