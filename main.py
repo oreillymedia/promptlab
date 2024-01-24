@@ -12,6 +12,8 @@ import shutil
 import os
 from jinja2 import Template
 from markdownify import markdownify as md
+import markdown
+import re
 
 
 
@@ -36,6 +38,7 @@ parser.add_argument(
         "transform",
         "list",
         "undo",
+        "get"
     ],
     help="The action to perform ",
 )
@@ -150,7 +153,7 @@ def action_load():
             book = epub.read_epub(args.fn)
             for idx,item in enumerate(book.get_items()):
                 if item.get_type() == ebooklib.ITEM_DOCUMENT:
-                    html = item.get_content()
+                    html = item.get_content().decode("utf-8")
                     create_block(c, operation_id, html, idx, item.get_name())
             conn.commit()
         else:
@@ -163,6 +166,15 @@ def action_load():
     finally:
         conn.close()
 
+def action_undo():
+    console.log("Undoing last operation")
+    sql = load("sql/undo_operation.sql")
+    conn = sqlite3.connect(args.db)
+    c = conn.cursor()
+    c.execute("PRAGMA foreign_keys=ON");
+    c.execute(sql)
+    conn.commit()
+    conn.close()
 
 def action_transform(script):
     console.log("Transforming file", args.fn)
@@ -176,6 +188,7 @@ def action_transform(script):
     operation_id = create_operation(c, "transform", "Transforming file " + args.fn)
     try:
         for b in blocks:
+            console.log("Processing block", b['tag'])
             result = execute(script, b['block'])
             if type(result) is list:
                 for idx,r in enumerate(result):
@@ -191,7 +204,6 @@ def action_transform(script):
         conn.rollback()
     finally:
         conn.close()
-
 
 def action_list():
     console.log("Listing blocks")
@@ -216,15 +228,13 @@ def action_list():
         )
     console.print(table)
 
-def action_undo():
-    console.log("Undoing last operation")
-    sql = load("sql/undo_operation.sql")
-    conn = sqlite3.connect(args.db)
-    c = conn.cursor()
-    c.execute("PRAGMA foreign_keys=ON");
-    c.execute(sql)
-    conn.commit()
-    conn.close()
+def action_get():
+    blocks = fetch_blocks(args.tag)
+    # Pull out the block element into it's own list
+    out = [b['block'] for b in blocks]
+    console.print("\n".join(out))
+
+
 
 # --------------------------------------------------------------------------------------------
 # Begin actions
@@ -260,6 +270,11 @@ if args.action == 'list':
 if args.action == 'undo':
     check_db(args.db)
     action_undo()
+    exit(0)
+
+if args.action == 'get':
+    check_db(args.db)
+    action_get()
     exit(0)
     
 
