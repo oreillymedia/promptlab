@@ -49,6 +49,7 @@ parser.add_argument("--fn", help="Filename", required=False, default="test.epub"
 parser.add_argument("--description", help="Description of the operations", required=False, default="")
 parser.add_argument("--tag", help="Tag to filter on", required=False, default="*")
 parser.add_argument("--script", help="Script to execute", required=False)
+parser.add_argument("--blockid", help="Block ID to use", required=False)
 
 args = parser.parse_args()
 
@@ -110,6 +111,18 @@ def fetch_blocks(tag="*", latest=True):
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute(sql, (tag,))
+    results = c.fetchall()
+    conn.close()
+    return results
+
+def fetch_blocks_by_id(id):
+    # Replace the * with a pct, which is what sqlite3 requires for wildcards
+    sql = load("sql/fetch_block_by_id.sql")
+    # Grab the data
+    conn = sqlite3.connect(args.db)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute(sql, (id,))
     results = c.fetchall()
     conn.close()
     return results
@@ -229,7 +242,10 @@ def action_list():
     console.print(table)
 
 def action_get():
-    blocks = fetch_blocks(args.tag)
+    if args.blockid is not None:
+        blocks = fetch_blocks_by_id(args.blockid)
+    else:
+        blocks = fetch_blocks(args.tag)
     # Pull out the block element into it's own list
     out = [b['block'] for b in blocks]
     console.print("\n".join(out))
