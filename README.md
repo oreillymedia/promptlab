@@ -1,5 +1,15 @@
 # Prompt Lab
 
+Spec for bulk uploaded questions:
+
+https://github.com/oreillymedia/quiz-service/blob/9cfa6f3b85c651701c952d5ad4640ea145685a4f/docs/bulk_upload_readme.md
+
+Programming Rust
+Building Microservices
+Designing Machine Learning Systems
+
+https://learning.oreilly.com/library/view/prompt-engineering-for/9781098153427/ch03.html#id183
+
 ## Arguments
 
 Arguments

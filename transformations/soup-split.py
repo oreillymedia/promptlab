@@ -8,7 +8,10 @@ def main(b):
     s = ""
     tag = soup.find('h1') # Find the first tag
     while tag:
-        s += repr(tag).replace("\n","")
+        if tag.name is not None:
+            s += repr(tag).replace("\n"," ")
+        else:
+            s += "\n\n"
         tag = tag.nextSibling
         if tag is not None and tag.name in ["h1", "h2"]:
             blocks.append(s.replace("'\n'","\n"))
