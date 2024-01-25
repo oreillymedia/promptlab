@@ -51,7 +51,11 @@ python main.py load --file=example.epub
 
 python main.py transform --script=transformations/token_split.py
 
-## Useful queries
+## Working directly with the database
+
+https://sqlitebrowser.org/
+
+### Useful queries
 
 ```
 select operation_id, tag, position, token_count, substr(block,1,10) from blocks;

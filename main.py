@@ -18,6 +18,7 @@ import sys
 
 
 
+
 load_dotenv(find_dotenv())
 
 
@@ -39,7 +40,8 @@ parser.add_argument(
         "transform",
         "list",
         "undo",
-        "get"
+        "get",
+        "prompt"
     ],
     help="The action to perform ",
 )
@@ -50,7 +52,8 @@ parser.add_argument("--fn", help="Filename", required=False, default="test.epub"
 parser.add_argument("--description", help="Description of the operations", required=False, default="")
 parser.add_argument("--tag", help="Tag to filter on", required=False, default="*")
 parser.add_argument("--script", help="Script to execute", required=False)
-parser.add_argument("--blockid", help="Block ID to use", required=False)
+parser.add_argument("--block_id", help="Block ID to use", required=False)
+parser.add_argument("--template", help="Template to use", required=False)
 
 args = parser.parse_args()
 
@@ -193,7 +196,10 @@ def action_undo():
 def action_transform(script):
     console.log("Transforming file", args.fn)
     script = load(script)
-    blocks = fetch_blocks(args.tag)
+    if args.block_id is not None:
+        blocks = fetch_blocks_by_id(args.block_id)
+    else:
+        blocks = fetch_blocks(args.tag)
     # Open a new connection
     conn = sqlite3.connect(args.db)
     conn.isolation_level = None
@@ -219,32 +225,45 @@ def action_transform(script):
     finally:
         conn.close()
 
+def action_prompt(prompt):
+    console.log("Prompting file", args.fn)
+    template = Template(load(prompt))
+    if args.block_id is not None:
+        blocks = fetch_blocks_by_id(args.block_id)
+    else:
+        blocks = fetch_blocks(args.tag)
+    # Apply the template to each block
+    for b in blocks:
+        out = template.render(block=b['block'])
+        console.print(out)
+        console.print("**********\n\n")
+
+
+
 def action_list():
     console.log("Listing blocks")
     blocks = fetch_blocks(args.tag)
     table = Table(title="Blocks", header_style="bold magenta")
-    table.add_column("operation_id", justify="center")
-    table.add_column("operation", justify="center")
+    table.add_column("#", justify="center", style="blue")
     table.add_column("block_id", justify="center", style="cyan")
     table.add_column("tag", justify="left")
-    table.add_column("token_count", justify="right")
+    table.add_column("~tokens", justify="right")
     table.add_column("block", justify="left")
-    for block in blocks:
+    for idx,block in enumerate(blocks):
         # Strip and \n and replace with " " for block
         b = str(block["block"]).replace("\n", " ")
         table.add_row(
-            str(block["operation_id"]),
-            block["operation"],
+            str(idx),
             str(block["id"]),
             block["tag"],
             '{:,}'.format(block["token_count"]),
-            b[:20],
+            b[:40],
         )
     console.print(table)
 
 def action_get():
-    if args.blockid is not None:
-        blocks = fetch_blocks_by_id(args.blockid)
+    if args.block_id is not None:
+        blocks = fetch_blocks_by_id(args.block_id)
     else:
         blocks = fetch_blocks(args.tag)
     # Pull out the block element into it's own list
@@ -293,6 +312,14 @@ if args.action == 'undo':
 if args.action == 'get':
     check_db(args.db)
     action_get()
+    exit(0)
+
+if args.action == 'prompt':
+    check_db(args.db)
+    if args.template is None:
+        console.log("You must provide a --template argument for the prompt")
+        exit(1)
+    action_prompt(args.template)
     exit(0)
     
 
