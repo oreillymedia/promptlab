@@ -1,14 +1,15 @@
 # Prompt Lab
 
-Spec for bulk uploaded questions:
+- Spec for bulk uploaded questions -- https://github.com/oreillymedia/quiz-service/blob/9cfa6f3b85c651701c952d5ad4640ea145685a4f/docs/bulk_upload_readme.md
 
-https://github.com/oreillymedia/quiz-service/blob/9cfa6f3b85c651701c952d5ad4640ea145685a4f/docs/bulk_upload_readme.md
+- List of openAI models -- https://platform.openai.com/docs/models/gpt-3-5
 
-Programming Rust
-Building Microservices
-Designing Machine Learning Systems
+- Editorial test books
+  ** Programming Rust
+  ** Building Microservices
+  \*\* Designing Machine Learning Systems
 
-https://learning.oreilly.com/library/view/prompt-engineering-for/9781098153427/ch03.html#id183
+- Good chapter on splitting for LLMs -- https://learning.oreilly.com/library/view/prompt-engineering-for/9781098153427/ch03.html#id183
 
 ## Arguments
 

@@ -15,11 +15,19 @@ from markdownify import markdownify as md
 import markdown
 import re
 import sys
+import openai
+import json
+import hashlib
+import logging
 
 
 
 
 load_dotenv(find_dotenv())
+
+openai.api_key = os.environ["OPENAI_API_KEY"]
+
+logging.getLogger("ebooklib").setLevel(logging.ERROR)
 
 
 console = Console()
@@ -53,7 +61,8 @@ parser.add_argument("--description", help="Description of the operations", requi
 parser.add_argument("--tag", help="Tag to filter on", required=False, default="*")
 parser.add_argument("--script", help="Script to execute", required=False)
 parser.add_argument("--block_id", help="Block ID to use", required=False)
-parser.add_argument("--template", help="Template to use", required=False)
+parser.add_argument("--prompt", help="Prompt to use", required=False)
+parser.add_argument("--model", help="Model to use", required=False, default="gpt-4")
 
 args = parser.parse_args()
 
@@ -74,6 +83,9 @@ def load(fn):
         data = f.read()
     return data
 
+def hash(txt):
+    return hashlib.sha256(txt.encode('utf-8')).hexdigest()
+
 
 # *****************************************************************************************
 # Block operations
@@ -87,12 +99,27 @@ def create_operation(c, operation, description=args.description):
     return operation_id
 
 # Inserts into the blocks table and returns the block id
-def create_block(c, operation_id, block, position, tag):
+def create_block(c, operation_id, block, position, tag, parent_id):
     sql = load("sql/create_block.sql")
     token_count = len(str(block).split(" "))
-    c.execute(sql, (operation_id, position, block, token_count, tag))
+    c.execute(sql, (operation_id, position, block, token_count, tag, parent_id))
     block_id = c.lastrowid
     return block_id
+
+# Unlike other operation, this should alsways be committed directly
+def create_prompt_response(block_id,prompt_fn, prompt,arguments, elapsed_time_in_seconds, response_json):
+    sql = load("sql/create_prompt_response.sql")
+    conn = sqlite3.connect(args.db)
+    c = conn.cursor()
+    response_txt = str(response_json.choices[0].message.content)
+    prompt_hash = hash(prompt)
+    response_json_str = json.dumps(response_json)
+    c.execute(sql, (block_id, prompt_fn, prompt, prompt_hash, response_txt, response_json_str, arguments, elapsed_time_in_seconds))
+    conn.commit()
+    conn.close()
+    prompt_response_id = c.lastrowid
+    return prompt_response_id
+
 
 def execute(script,block):
     # Create a dictionary to use as the local variables
@@ -167,15 +194,15 @@ def action_load():
         operation_id = create_operation(c, "load", "Loading file " + args.fn)
         # Load the file based on the filetype
         if args.fn.endswith(".epub"):
-            book = epub.read_epub(args.fn)
+            book = epub.read_epub(args.fn, {"ignore_ncx": True})
             for idx,item in enumerate(book.get_items()):
                 if item.get_type() == ebooklib.ITEM_DOCUMENT:
                     html = item.get_content().decode("utf-8")
-                    create_block(c, operation_id, html, idx, item.get_name())
+                    create_block(c, operation_id, html, idx, item.get_name(),0)
             conn.commit()
         else:
             txt = load(args.fn)
-            create_block(c, operation_id, txt, 0, args.fn)
+            create_block(c, operation_id, txt, 0, args.fn,0)
             conn.commit()
     except Exception as e:
         console.log("Unable to process request:", e)
@@ -212,9 +239,9 @@ def action_transform(script):
             result = execute(script, b['block'])
             if type(result) is list:
                 for idx,r in enumerate(result):
-                    create_block(c, operation_id, r, idx, b['tag'])
+                    create_block(c, operation_id, r, idx, b['tag'], b['id'])
             elif type(result) is str:
-                create_block(c, operation_id, result, 0, b['tag'])
+                create_block(c, operation_id, result, 0, b['tag'], b['id'])
             else:
                 # Raise an error
                 raise Exception(f"Result is not a list or string: {type(result)}")
@@ -225,18 +252,30 @@ def action_transform(script):
     finally:
         conn.close()
 
-def action_prompt(prompt):
-    console.log("Prompting file", args.fn)
-    template = Template(load(prompt))
+def action_prompt(prompt_fn):
+    template = Template(load(prompt_fn))
     if args.block_id is not None:
         blocks = fetch_blocks_by_id(args.block_id)
     else:
         blocks = fetch_blocks(args.tag)
     # Apply the template to each block
     for b in blocks:
-        out = template.render(block=b['block'])
-        console.print(out)
-        console.print("**********\n\n")
+        prompt_text = template.render(block=b['block'])
+        console.log("Prompting block", b['id'], b['tag'], b['block'][:40].replace("\n", " "))
+        start = time.time()
+        response = openai.ChatCompletion.create(
+            model=args.model,
+            messages=[{"role": "user", "content": prompt_text}],
+            temperature=0.1,
+            max_tokens=500,
+        )
+        end = time.time()
+        # Save the response to the database
+        create_prompt_response(b['id'],prompt_fn, prompt_text," ".join(sys.argv), end-start, response)
+
+        console.log("Elapsed time",end-start," -> ", response.choices[0].message.content)
+
+
 
 
 
@@ -316,10 +355,10 @@ if args.action == 'get':
 
 if args.action == 'prompt':
     check_db(args.db)
-    if args.template is None:
-        console.log("You must provide a --template argument for the prompt")
+    if args.prompt is None:
+        console.log("You must provide a --prompt argument for the prompt")
         exit(1)
-    action_prompt(args.template)
+    action_prompt(args.prompt)
     exit(0)
     
 
