@@ -1,9 +1,7 @@
 select 
-   b.*,
-   o.operation,
-   o.description
+   b.*
  FROM
-    operations o
+   operations o
 	join blocks b on b.operation_id = o.id
 WHERE
    b.tag like ? and 

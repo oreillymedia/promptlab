@@ -48,7 +48,8 @@ parser.add_argument(
         "init",
         "load",
         "transform",
-        "list",
+        "blocks",
+        "operations",
         "undo",
         "get",
         "prompt",
@@ -95,9 +96,10 @@ def hash(txt):
 # *****************************************************************************************
 
 # Write an operation to the database
-def create_operation(c, operation, description=args.description):
+def create_operation(c):
     sql = load("sql/create_operation.sql")
-    c.execute(sql, (operation, description, " ".join(sys.argv)))
+    arguments = " ".join(sys.argv)
+    c.execute(sql, (arguments,))
     operation_id = c.lastrowid
     return operation_id
 
@@ -193,7 +195,7 @@ def action_load():
         conn.isolation_level = None
         c = conn.cursor()
         c.execute("BEGIN")
-        operation_id = create_operation(c, "load", "Loading file " + args.fn)
+        operation_id = create_operation(c)
         # Load the file based on the filetype
         if args.fn.endswith(".epub"):
             book = epub.read_epub(args.fn, {"ignore_ncx": True})
@@ -236,7 +238,7 @@ def action_transform(script):
     conn.isolation_level = None
     c = conn.cursor()
     c.execute("BEGIN")
-    operation_id = create_operation(c, "transform", "Transforming file " + args.fn)
+    operation_id = create_operation(c)
     try:
         for b in blocks:
             console.log("Processing block", b['tag'])
@@ -281,28 +283,45 @@ def action_prompt(prompt_fn):
 
 
 
-
-
-def action_list():
-    console.log("Listing blocks")
+def action_blocks():
     blocks = fetch_blocks(args.tag)
     table = Table(title="Blocks", header_style="bold magenta")
-    table.add_column("#", justify="center", style="blue")
     table.add_column("block_id", justify="center", style="cyan")
     table.add_column("tag", justify="left")
     table.add_column("~tokens", justify="right")
     table.add_column("block", justify="left")
+    total_tokens = 0
     for idx,block in enumerate(blocks):
         # Strip and \n and replace with " " for block
+        tokens = len(block["block"].split(" "))
+        total_tokens += tokens
         b = str(block["block"]).replace("\n", " ")
         table.add_row(
-            str(idx),
             str(block["id"]),
             block["tag"],
-            '{:,}'.format(len(b.split(" "))),
+            '{:,}'.format(tokens),
             b[:40],
         )
     console.print(table)
+    console.print(f"\n{len(blocks)} blocks with {'{:,}'.format(total_tokens)} tokens.\n")
+
+def action_operations():
+    conn = sqlite3.connect(args.db)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("select * from operations")
+    results = c.fetchall()
+    conn.close()
+    table = Table(title="Operations", header_style="bold magenta")
+    table.add_column("id", justify="center", style="cyan")
+    table.add_column("arguments", justify="left")
+    for idx,op in enumerate(results):
+        table.add_row(
+            str(op["id"]),
+            op["arguments"]
+        )
+    console.print(table)
+    console.print(f"\n{len(results)} operations have been performed.\n")
 
 def action_get():
     if args.block_id is not None:
@@ -350,9 +369,14 @@ if args.action =='transform':
         exit(1)
     action_transform(args.script)
 
-if args.action == 'list':
+if args.action == 'blocks':
     check_db(args.db)
-    action_list()
+    action_blocks()
+    exit(0)
+
+if args.action == 'operations':
+    check_db(args.db)
+    action_operations()
     exit(0)
 
 if args.action == 'undo':

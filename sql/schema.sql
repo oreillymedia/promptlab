@@ -1,7 +1,5 @@
 create table if not exists operations (
     id integer primary key autoincrement,
-    operation text,
-    description text,
     arguments text,
     created_at datetime DEFAULT CURRENT_TIMESTAMP
 );
@@ -35,6 +33,10 @@ create table if not exists prompt_reponses (
     elapsed_time_in_seconds float,
     created_at datetime DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Single row table should always hold the current operation we're on
+create table if not exists current_operation as 
+    select 0 operation;
 
 
 
