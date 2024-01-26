@@ -19,6 +19,8 @@ import openai
 import json
 import hashlib
 import logging
+from rich.tree import Tree
+from rich import print as rprint
 
 
 
@@ -49,7 +51,8 @@ parser.add_argument(
         "list",
         "undo",
         "get",
-        "prompt"
+        "prompt",
+        "tree"
     ],
     help="The action to perform ",
 )
@@ -99,10 +102,9 @@ def create_operation(c, operation, description=args.description):
     return operation_id
 
 # Inserts into the blocks table and returns the block id
-def create_block(c, operation_id, block, position, tag, parent_id):
+def create_block(c, operation_id, block, tag, parent_id):
     sql = load("sql/create_block.sql")
-    token_count = len(str(block).split(" "))
-    c.execute(sql, (operation_id, position, block, token_count, tag, parent_id))
+    c.execute(sql, (operation_id, block, tag, parent_id))
     block_id = c.lastrowid
     return block_id
 
@@ -195,14 +197,16 @@ def action_load():
         # Load the file based on the filetype
         if args.fn.endswith(".epub"):
             book = epub.read_epub(args.fn, {"ignore_ncx": True})
-            for idx,item in enumerate(book.get_items()):
+            idx = 0
+            for item in book.get_items():
                 if item.get_type() == ebooklib.ITEM_DOCUMENT:
                     html = item.get_content().decode("utf-8")
-                    create_block(c, operation_id, html, idx, item.get_name(),0)
+                    create_block(c, operation_id, html,  item.get_name(),0)
+                    idx += 1
             conn.commit()
         else:
             txt = load(args.fn)
-            create_block(c, operation_id, txt, 0, args.fn,0)
+            create_block(c, operation_id, txt, args.fn,0)
             conn.commit()
     except Exception as e:
         console.log("Unable to process request:", e)
@@ -238,10 +242,10 @@ def action_transform(script):
             console.log("Processing block", b['tag'])
             result = execute(script, b['block'])
             if type(result) is list:
-                for idx,r in enumerate(result):
-                    create_block(c, operation_id, r, idx, b['tag'], b['id'])
+                for r in result:
+                    create_block(c, operation_id, r, b['tag'], b['id'])
             elif type(result) is str:
-                create_block(c, operation_id, result, 0, b['tag'], b['id'])
+                create_block(c, operation_id, result, b['tag'], b['id'])
             else:
                 # Raise an error
                 raise Exception(f"Result is not a list or string: {type(result)}")
@@ -295,7 +299,7 @@ def action_list():
             str(idx),
             str(block["id"]),
             block["tag"],
-            '{:,}'.format(block["token_count"]),
+            '{:,}'.format(len(b.split(" "))),
             b[:40],
         )
     console.print(table)
@@ -307,6 +311,14 @@ def action_get():
         blocks = fetch_blocks(args.tag)
     # Pull out the block element into it's own list
     out = [b['block'] for b in blocks]
+    console.print("\n".join(out))
+
+def action_tree():
+    if args.block_id is not None:
+        blocks = fetch_blocks_by_id(args.block_id)
+    else:
+        blocks = fetch_blocks(args.tag)
+    # Pull out the block element into it's own list
     console.print("\n".join(out))
 
 
