@@ -1,10 +1,10 @@
 # Prompt Lab
 
-There are 3 key concepts in Prompt Lab:
+Promptlab has 3 key concepts:
 
 - _Blocks_. Blocks of text of any length or format (text, HTML, markdown, etc). Blocks are initialized with a `load` command that reads reads files or EPUB archives.
 
-- _Operations_. Operations are the actions that are performed on blocks. Examples include: loading data from a file or an epub, transforming from one format to another,or splitting a block into new blocks. Each operation is defined by a script; some scripts are included in the repo, but users can also write their own.
+- _Operations_. Operations are the actions that are performed on blocks. Examples include: transforming from one format to another or splitting a long block into several smaller ones. Each operation is defined by a script; some scripts are included in the repo, but users can also write their own.
 
 - _Prompts_. Prompts are LLM results applied against a block. You define a prompt using a template defined in the `jinjia2` templating language. Promptlab combines your template with the given bloc, sends it to the LLM, and stores the result.
 
@@ -13,6 +13,10 @@ A few other important ideas:
 - _IDs_. Each element has a unique ID. IDs are assigned automatically when the element is created. IDs are used to refer to specific blocks, operations, or prompts.
 
 - _Tags_. Tags are used to group blocks. For example, you might want to tag all the blocks that are from a particular chapter. Tags are defined by the user.
+
+- _Load_ -- the process of reading a file or EPUB archive and creating an initial set of blocks.
+
+- _Init_ -- Creating a new, empty SQLITE database to store the content. By default, the database is named `promptlab.db`.
 
 ## Arguments
 

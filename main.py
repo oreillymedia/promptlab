@@ -50,10 +50,9 @@ parser.add_argument(
         "transform",
         "blocks",
         "operations",
-        "undo",
         "get",
         "prompt",
-        "tree"
+        "set-operation"
     ],
     help="The action to perform ",
 )
@@ -65,6 +64,7 @@ parser.add_argument("--description", help="Description of the operations", requi
 parser.add_argument("--tag", help="Tag to filter on", required=False, default="*")
 parser.add_argument("--script", help="Script to execute", required=False)
 parser.add_argument("--block_id", help="Block ID to use", required=False)
+parser.add_argument("--operation_id", help="Operation ID to use", required=False)
 parser.add_argument("--prompt", help="Prompt to use", required=False)
 parser.add_argument("--model", help="Model to use", required=False, default="gpt-4")
 
@@ -101,6 +101,29 @@ def create_operation(c):
     arguments = " ".join(sys.argv)
     c.execute(sql, (arguments,))
     operation_id = c.lastrowid
+    return operation_id
+
+def get_current_operation():
+    conn = sqlite3.connect(args.db)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("select operation from current_operation")
+    operation_id = c.fetchone()[0]  
+    conn.close()      
+    return int(operation_id)
+
+def fetch_operations():
+    sql = load("sql/fetch_operations.sql")
+    conn = sqlite3.connect(args.db)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute(sql)
+    results = c.fetchall()
+    conn.close()
+    return results
+
+def update_current_operation(c, operation_id):
+    c.execute("UPDATE current_operation set operation = ?", (operation_id,))
     return operation_id
 
 # Inserts into the blocks table and returns the block id
@@ -205,10 +228,12 @@ def action_load():
                     html = item.get_content().decode("utf-8")
                     create_block(c, operation_id, html,  item.get_name(),0)
                     idx += 1
+            update_current_operation(c, operation_id)
             conn.commit()
         else:
             txt = load(args.fn)
             create_block(c, operation_id, txt, args.fn,0)
+            update_current_operation(c, operation_id)
             conn.commit()
     except Exception as e:
         console.log("Unable to process request:", e)
@@ -216,15 +241,6 @@ def action_load():
     finally:
         conn.close()
 
-def action_undo():
-    console.log("Undoing last operation")
-    sql = load("sql/undo_operation.sql")
-    conn = sqlite3.connect(args.db)
-    c = conn.cursor()
-    c.execute("PRAGMA foreign_keys=ON");
-    c.execute(sql)
-    conn.commit()
-    conn.close()
 
 def action_transform(script):
     console.log("Transforming file", args.fn)
@@ -251,6 +267,7 @@ def action_transform(script):
             else:
                 # Raise an error
                 raise Exception(f"Result is not a list or string: {type(result)}")
+        update_current_operation(c, operation_id)
         conn.commit()
     except Exception as e:
         console.log("Unable to process request:", e)
@@ -282,10 +299,10 @@ def action_prompt(prompt_fn):
         console.log("Elapsed time",end-start," -> ", response.choices[0].message.content)
 
 
-
 def action_blocks():
     blocks = fetch_blocks(args.tag)
-    table = Table(title="Blocks", header_style="bold magenta")
+    current_operation = get_current_operation()
+    table = Table(title=f"Blocks for operation id {current_operation}", header_style="bold magenta")
     table.add_column("block_id", justify="center", style="cyan")
     table.add_column("tag", justify="left")
     table.add_column("~tokens", justify="right")
@@ -303,25 +320,32 @@ def action_blocks():
             b[:40],
         )
     console.print(table)
-    console.print(f"\n{len(blocks)} blocks with {'{:,}'.format(total_tokens)} tokens.\n")
+    console.print(f"\n{len(blocks)} blocks with {'{:,}'.format(total_tokens)} tokens.")
+    console.print(f"Current operation id = {current_operation}\n")
 
 def action_operations():
-    conn = sqlite3.connect(args.db)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute("select * from operations")
-    results = c.fetchall()
-    conn.close()
+    current_operation_id = get_current_operation()
+    results = fetch_operations()
     table = Table(title="Operations", header_style="bold magenta")
-    table.add_column("id", justify="center", style="cyan")
+    table.add_column("id", justify="center")
     table.add_column("arguments", justify="left")
-    for idx,op in enumerate(results):
-        table.add_row(
-            str(op["id"]),
-            op["arguments"]
-        )
+    table.add_column("block count", justify="left")
+    for op in results:
+        if op["id"] == current_operation_id:   
+            table.add_row(
+                f"[bold][red]{op['id']}",
+                f"[bold][red]{op['arguments']}",
+                f"[bold][red]{op['block_count']}"
+            )
+        else:
+            table.add_row(
+                str(op["id"]),
+                op["arguments"],
+                str(op["block_count"])
+            )
     console.print(table)
     console.print(f"\n{len(results)} operations have been performed.\n")
+    
 
 def action_get():
     if args.block_id is not None:
@@ -339,8 +363,6 @@ def action_tree():
         blocks = fetch_blocks(args.tag)
     # Pull out the block element into it's own list
     console.print("\n".join(out))
-
-
 
 
 # --------------------------------------------------------------------------------------------
@@ -379,11 +401,6 @@ if args.action == 'operations':
     action_operations()
     exit(0)
 
-if args.action == 'undo':
-    check_db(args.db)
-    action_undo()
-    exit(0)
-
 if args.action == 'get':
     check_db(args.db)
     action_get()
@@ -396,6 +413,17 @@ if args.action == 'prompt':
         exit(1)
     action_prompt(args.prompt)
     exit(0)
+
+if args.action == 'set-operation':
+    check_db(args.db)
+    if args.operation_id is None:
+        console.log("You must provide a --operation_id argument for the operation")
+        exit(1)
+    conn = sqlite3.connect(args.db)
+    c = conn.cursor()
+    update_current_operation(c, args.operation_id)
+    conn.commit()
+    conn.close()
     
 
     
