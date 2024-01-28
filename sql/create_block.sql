@@ -1,4 +1,4 @@
 INSERT INTO blocks 
-   (operation_id, block, tag, parent_id) 
+   (group_id, block, tag, parent_id) 
 VALUES 
    (?, ?, ?, ?)

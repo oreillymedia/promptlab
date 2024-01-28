@@ -1,12 +1,12 @@
 select 
    b.*
  FROM
-   operations o
-	join blocks b on b.operation_id = o.id
-   join current_operation co
+   groups o
+	join blocks b on b.group_id = o.id
+   join current_group co
 WHERE
    b.tag like ? and 
-   b.operation_id = co.operation
+   b.group_id = co.id
 order by
-    b.operation_id,
+    b.group_id,
     b.id

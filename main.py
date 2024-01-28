@@ -47,12 +47,12 @@ parser.add_argument(
     choices=[
         "init",
         "load",
-        "transform",
+        "group",
         "blocks",
-        "operations",
+        "groups",
         "get",
         "prompt",
-        "set-operation"
+        "set-group"
     ],
     help="The action to perform ",
 )
@@ -60,11 +60,11 @@ parser.add_argument(
 
 parser.add_argument("--db", help="The database file", required=False, default="promptlab.db")
 parser.add_argument("--fn", help="Filename", required=False, default="test.epub")
-parser.add_argument("--description", help="Description of the operations", required=False, default="")
+parser.add_argument("--description", help="Description of the groups", required=False, default="")
 parser.add_argument("--tag", help="Tag to filter on", required=False, default="*")
 parser.add_argument("--script", help="Script to execute", required=False)
 parser.add_argument("--block_id", help="Block ID to use", required=False)
-parser.add_argument("--operation_id", help="Operation ID to use", required=False)
+parser.add_argument("--group_id", help="group ID to use", required=False)
 parser.add_argument("--prompt", help="Prompt to use", required=False)
 parser.add_argument("--model", help="Model to use", required=False, default="gpt-4")
 
@@ -92,28 +92,28 @@ def hash(txt):
 
 
 # *****************************************************************************************
-# Block operations
+# Block groups
 # *****************************************************************************************
 
-# Write an operation to the database
-def create_operation(c):
-    sql = load("sql/create_operation.sql")
+# Write an group to the database
+def create_group(c):
+    sql = load("sql/create_group.sql")
     arguments = " ".join(sys.argv)
     c.execute(sql, (arguments,))
-    operation_id = c.lastrowid
-    return operation_id
+    group_id = c.lastrowid
+    return group_id
 
-def get_current_operation():
+def get_current_group():
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    c.execute("select operation from current_operation")
-    operation_id = c.fetchone()[0]  
+    c.execute("select id from current_group")
+    group_id = c.fetchone()[0]  
     conn.close()      
-    return int(operation_id)
+    return int(group_id)
 
-def fetch_operations():
-    sql = load("sql/fetch_operations.sql")
+def fetch_groups():
+    sql = load("sql/fetch_groups.sql")
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
@@ -122,18 +122,18 @@ def fetch_operations():
     conn.close()
     return results
 
-def update_current_operation(c, operation_id):
-    c.execute("UPDATE current_operation set operation = ?", (operation_id,))
-    return operation_id
+def update_current_group(c, group_id):
+    c.execute("UPDATE current_group set id = ?", (group_id,))
+    return group_id
 
 # Inserts into the blocks table and returns the block id
-def create_block(c, operation_id, block, tag, parent_id):
+def create_block(c, group_id, block, tag, parent_id):
     sql = load("sql/create_block.sql")
-    c.execute(sql, (operation_id, block, tag, parent_id))
+    c.execute(sql, (group_id, block, tag, parent_id))
     block_id = c.lastrowid
     return block_id
 
-# Unlike other operation, this should alsways be committed directly
+# Unlike other group, this should alsways be committed directly
 def create_prompt_response(block_id,prompt_fn, prompt,arguments, elapsed_time_in_seconds, response_json):
     sql = load("sql/create_prompt_response.sql")
     conn = sqlite3.connect(args.db)
@@ -186,7 +186,7 @@ def fetch_blocks_by_id(id):
     return results
 
 # *****************************************************************************************
-# Action operations 
+# Action groups 
 # *****************************************************************************************
 
 # Initialize the database by reading in the schema and creating the database
@@ -218,7 +218,7 @@ def action_load():
         conn.isolation_level = None
         c = conn.cursor()
         c.execute("BEGIN")
-        operation_id = create_operation(c)
+        group_id = create_group(c)
         # Load the file based on the filetype
         if args.fn.endswith(".epub"):
             book = epub.read_epub(args.fn, {"ignore_ncx": True})
@@ -226,14 +226,14 @@ def action_load():
             for item in book.get_items():
                 if item.get_type() == ebooklib.ITEM_DOCUMENT:
                     html = item.get_content().decode("utf-8")
-                    create_block(c, operation_id, html,  item.get_name(),0)
+                    create_block(c, group_id, html,  item.get_name(),0)
                     idx += 1
-            update_current_operation(c, operation_id)
+            update_current_group(c, group_id)
             conn.commit()
         else:
             txt = load(args.fn)
-            create_block(c, operation_id, txt, args.fn,0)
-            update_current_operation(c, operation_id)
+            create_block(c, group_id, txt, args.fn,0)
+            update_current_group(c, group_id)
             conn.commit()
     except Exception as e:
         console.log("Unable to process request:", e)
@@ -254,20 +254,20 @@ def action_transform(script):
     conn.isolation_level = None
     c = conn.cursor()
     c.execute("BEGIN")
-    operation_id = create_operation(c)
+    group_id = create_group(c)
     try:
         for b in blocks:
             console.log("Processing block", b['tag'])
             result = execute(script, b['block'])
             if type(result) is list:
                 for r in result:
-                    create_block(c, operation_id, r, b['tag'], b['id'])
+                    create_block(c, group_id, r, b['tag'], b['id'])
             elif type(result) is str:
-                create_block(c, operation_id, result, b['tag'], b['id'])
+                create_block(c, group_id, result, b['tag'], b['id'])
             else:
                 # Raise an error
                 raise Exception(f"Result is not a list or string: {type(result)}")
-        update_current_operation(c, operation_id)
+        update_current_group(c, group_id)
         conn.commit()
     except Exception as e:
         console.log("Unable to process request:", e)
@@ -301,8 +301,8 @@ def action_prompt(prompt_fn):
 
 def action_blocks():
     blocks = fetch_blocks(args.tag)
-    current_operation = get_current_operation()
-    table = Table(title=f"Blocks for operation id {current_operation}", header_style="bold magenta")
+    current_group = get_current_group()
+    table = Table(title=f"Blocks for group id {current_group}", header_style="bold magenta")
     table.add_column("block_id", justify="center", style="cyan")
     table.add_column("tag", justify="left")
     table.add_column("~tokens", justify="right")
@@ -321,17 +321,17 @@ def action_blocks():
         )
     console.print(table)
     console.print(f"\n{len(blocks)} blocks with {'{:,}'.format(total_tokens)} tokens.")
-    console.print(f"Current operation id = {current_operation}\n")
+    console.print(f"Current group id = {current_group}\n")
 
-def action_operations():
-    current_operation_id = get_current_operation()
-    results = fetch_operations()
-    table = Table(title="Operations", header_style="bold magenta")
+def action_groups():
+    current_group_id = get_current_group()
+    results = fetch_groups()
+    table = Table(title="groups", header_style="bold magenta")
     table.add_column("id", justify="center")
     table.add_column("arguments", justify="left")
-    table.add_column("block count", justify="left")
+    table.add_column("blocks", justify="left")
     for op in results:
-        if op["id"] == current_operation_id:   
+        if op["id"] == current_group_id:   
             table.add_row(
                 f"[bold][red]{op['id']}",
                 f"[bold][red]{op['arguments']}",
@@ -344,7 +344,7 @@ def action_operations():
                 str(op["block_count"])
             )
     console.print(table)
-    console.print(f"\n{len(results)} operations have been performed.\n")
+    console.print(f"\n{len(results)} groups.\n")
     
 
 def action_get():
@@ -381,7 +381,7 @@ if args.action == 'load':
         exit(1)
     action_load()
 
-if args.action =='transform':
+if args.action =='group':
     check_db(args.db)
     if args.fn is None:
         console.log("You must provide a --fn argument for the file to read")
@@ -396,9 +396,9 @@ if args.action == 'blocks':
     action_blocks()
     exit(0)
 
-if args.action == 'operations':
+if args.action == 'groups':
     check_db(args.db)
-    action_operations()
+    action_groups()
     exit(0)
 
 if args.action == 'get':
@@ -414,14 +414,14 @@ if args.action == 'prompt':
     action_prompt(args.prompt)
     exit(0)
 
-if args.action == 'set-operation':
+if args.action == 'set-group':
     check_db(args.db)
-    if args.operation_id is None:
-        console.log("You must provide a --operation_id argument for the operation")
+    if args.group_id is None:
+        console.log("You must provide a --group_id argument for the group")
         exit(1)
     conn = sqlite3.connect(args.db)
     c = conn.cursor()
-    update_current_operation(c, args.operation_id)
+    update_current_group(c, args.group_id)
     conn.commit()
     conn.close()
     
