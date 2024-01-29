@@ -2,30 +2,25 @@
 
 Promptlab has 3 key concepts:
 
-- _Blocks_. Blocks of text of any length or format (text, HTML, markdown, etc). Blocks are initialized with a `load` command that reads reads files or EPUB archives.
+- _Blocks_. Blocks of text of any length or format (text, HTML, markdown, etc).
 
-- _groups_. groups are the actions that are performed on blocks. Examples include: transforming from one format to another or splitting a long block into several smaller ones. Each group is defined by a script; some scripts are included in the repo, but users can also write their own.
+- _Groups_. A set of blocks created by running a script. Examples include: transforming text from one format to another (e.g., HTML to Markdown) or splitting a long block into several smaller ones (e.g. breaking a long HTML into sections hased on heading tags like H1 or H2). Some scripts are included in the repo, but users can also write their own.
 
-- _Prompts_. Prompts are LLM results applied against a block. You define a prompt using a template defined in the `jinjia2` templating language. Promptlab combines your template with the given bloc, sends it to the LLM, and stores the result.
+- _Prompts_. The result from a prompt template applied against a block and sent to OpenAI's LLM. Promptlab combines your template (in Jinija2 format) with the given block, sends it to the LLM, and stores the result.
 
 A few other important ideas:
 
 - _IDs_. Each element has a unique ID. IDs are assigned automatically when the element is created. IDs are used to refer to specific blocks, groups, or prompts.
 
-- _Tags_. Tags are used to group blocks. For example, you might want to tag all the blocks that are from a particular chapter. Tags are defined by the user.
+- _Load_ -- the process of reading a file or EPUB archive and creating a group and a set of blocks
 
-- _Load_ -- the process of reading a file or EPUB archive and creating an initial set of blocks.
+- _Tags_. Tags are used to group blocks on an initial load. For example, if you load a tag from a file, it will be tagged with the file's name. It you load an EPUB, each block will be tagged with the chapter name. Tags are carried forward across group actions. So, if you split a block into 3 smaller blocks, all 3 will have the same tag as the original block.
 
 - _Init_ -- Creating a new, empty SQLITE database to store the content. By default, the database is named `promptlab.db`.
 
-## Arguments
+-- [SQLite3](https://www.sqlite.org/index.html). Promptlab uses SQLite3 as the database. The database is created automatically when you run `init`. You can use the [SQLite3 command line tool](https://www.sqlite.org/cli.html) to inspect the database directly or use a GUI like [DB Browser for SQLite](https://sqlitebrowser.org/).
 
-Arguments
-
-- `--db` - The sqilte3 database to use. If not provided, the default is `promptlab.db`.
-- `--fn`. Name of the input file. Valid extensions are `.html` and `.epub`.
-
-## Examples
+## Usage
 
 ### Initialize and empty database
 
@@ -35,38 +30,88 @@ Creates an empty database. If no db is provided, the default is `promptlab.db`.
 python main.py init --db=database.db
 ```
 
-### Load initial text
+### Loading initial text
 
-Load an initial file. The file can be either a singel HTML file or an EPUB.
-
-#### HTML
-
-For HTML, the entire file is loaded and treated as block 0.
+Load an initial file. The file can be either a single file or an EPUB. A single file is loaded into a new group and given a single block.
 
 ```
 python main.py load --file=example.html
 ```
 
-#### EPUB
-
-In the case of an epub, all the `ITEM_DOCUMENT` files are conacatenated into a single string and treated as block 0. Each `ITEM_DOCUMENT` is placed in it's own div with an ID = to the filename, with the chapter content used as the innerHTML.
+Loading an EPUB will create a group for each chapter and a block for each chapter:
 
 ```
 python main.py load --file=example.epub
 ```
 
-### Transformations
+## Groups
 
-python main.py transform --script=transformations/token_split.py
+### Creating groups
 
-## Working directly with the database
+You create a group by running a script against the blocks in the current group. This creates a new group with the transformed blocks as members. The original group is not modified.
 
-https://sqlitebrowser.org/
+For example, if you load a new file you'll get a new group and a single block with the file's contents. You can then run a script to split the block into smaller blocks. The result will be a new group with the smaller blocks. The original group will still have the single block. You can set which group you want to use using the `set-group` command; think of this as a kind of `cd` in a file system.
 
-### Useful queries
+Scripts are located in the `transformations` directory. A scriptaccpts an initial single block and can return a single block or a list of blocks. For example, here is a script that will capitalize all the letters in a block:
+
+```python
+def main(b):
+    return b.upper()
+
+result =  main(block)
+```
+
+Here's an example that will break the block into blocks of 5,000 characters each:
+
+```python
+# Split a block into tokens of length N
+def main(b):
+    N = 5000
+    res = []
+    tokens = b.split()
+    for i in range(0, len(tokens), N):
+        res.append(' '.join(tokens[i:i+N]))
+    return res
+
+result =  main(block)
+```
+
+To run a script, use the `group` command and provide the script name using the `--script` option:
 
 ```
-select group_id, tag, position, token_count, substr(block,1,10) from blocks;
+python main.py group --script=transformations/token_split.py
+```
+
+### Listing groups
+
+To list all groups, use the `groups` command:
+
+```
+python main.py groups
+```
+
+The results will look something like this:
+
+```
+┏━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ id ┃ arguments                                            ┃ blocks ┃
+┡━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ 1  │ main.py load                                         │ 26     │
+│ 2  │ main.py group --script=transformations/clean_epub.py │ 26     │
+│ 3  │ main.py group --script=transformations/soup-split.py │ 205    │
+│ 4  │ main.py group --script=transformations/html2md.py    │ 205    │
+└────┴──────────────────────────────────────────────────────┴────────┘
+
+Current group_id: 4
+4 group(s) in total
+```
+
+### Setting the current group
+
+To set the current group, use the `set-group` command:
+
+```
+python main.py set-group --group_id=1
 ```
 
 # ORM specific notes
@@ -81,3 +126,7 @@ select group_id, tag, position, token_count, substr(block,1,10) from blocks;
   \*\* Designing Machine Learning Systems
 
 - Good chapter on splitting for LLMs -- https://learning.oreilly.com/library/view/prompt-engineering-for/9781098153427/ch03.html#id183
+
+```
+
+```

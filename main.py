@@ -90,12 +90,20 @@ def load(fn):
 def hash(txt):
     return hashlib.sha256(txt.encode('utf-8')).hexdigest()
 
+def execute(script,block):
+    # Create a dictionary to use as the local variables
+    loc = {}
+    # Execute the code, using the block as the input
+    loc['block'] = block
+    exec(script, globals(), loc)
+    # Return the result
+    return loc['result']
+
 
 # *****************************************************************************************
-# Block groups
+#  Groups
 # *****************************************************************************************
 
-# Write an group to the database
 def create_group(c):
     sql = load("sql/create_group.sql")
     arguments = " ".join(sys.argv)
@@ -126,36 +134,16 @@ def update_current_group(c, group_id):
     c.execute("UPDATE current_group set id = ?", (group_id,))
     return group_id
 
-# Inserts into the blocks table and returns the block id
+
+# *****************************************************************************************
+#  Blocks
+# *****************************************************************************************
+
 def create_block(c, group_id, block, tag, parent_id):
     sql = load("sql/create_block.sql")
     c.execute(sql, (group_id, block, tag, parent_id))
     block_id = c.lastrowid
     return block_id
-
-# Unlike other group, this should alsways be committed directly
-def create_prompt_response(block_id,prompt_fn, prompt,arguments, elapsed_time_in_seconds, response_json):
-    sql = load("sql/create_prompt_response.sql")
-    conn = sqlite3.connect(args.db)
-    c = conn.cursor()
-    response_txt = str(response_json.choices[0].message.content)
-    prompt_hash = hash(prompt)
-    response_json_str = json.dumps(response_json)
-    c.execute(sql, (block_id, prompt_fn, prompt, prompt_hash, response_txt, response_json_str, arguments, elapsed_time_in_seconds))
-    conn.commit()
-    conn.close()
-    prompt_response_id = c.lastrowid
-    return prompt_response_id
-
-
-def execute(script,block):
-    # Create a dictionary to use as the local variables
-    loc = {}
-    # Execute the code, using the block as the input
-    loc['block'] = block
-    exec(script, globals(), loc)
-    # Return the result
-    return loc['result']
 
 def fetch_blocks(tag="*", latest=True):
     # Replace the * with a pct, which is what sqlite3 requires for wildcards
@@ -184,6 +172,25 @@ def fetch_blocks_by_id(id):
     results = c.fetchall()
     conn.close()
     return results
+
+# *****************************************************************************************
+#  Prompts
+# *****************************************************************************************
+
+
+def create_prompt_response(block_id,prompt_fn, prompt,arguments, elapsed_time_in_seconds, response_json):
+    sql = load("sql/create_prompt_response.sql")
+    conn = sqlite3.connect(args.db)
+    c = conn.cursor()
+    response_txt = str(response_json.choices[0].message.content)
+    prompt_hash = hash(prompt)
+    response_json_str = json.dumps(response_json)
+    c.execute(sql, (block_id, prompt_fn, prompt, prompt_hash, response_txt, response_json_str, arguments, elapsed_time_in_seconds))
+    # Unlike other group, this should alsways be committed directly
+    conn.commit()
+    conn.close()
+    prompt_response_id = c.lastrowid
+    return prompt_response_id
 
 # *****************************************************************************************
 # Action groups 
@@ -344,7 +351,8 @@ def action_groups():
                 str(op["block_count"])
             )
     console.print(table)
-    console.print(f"\n{len(results)} groups.\n")
+    console.print(f"\nCurrent group_id: {current_group_id}")
+    console.print(f"{len(results)} group(s) in total\n")
     
 
 def action_get():
