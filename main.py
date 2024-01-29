@@ -19,56 +19,17 @@ import openai
 import json
 import hashlib
 import logging
-from rich.tree import Tree
-from rich import print as rprint
-
-
 
 
 load_dotenv(find_dotenv())
 
 openai.api_key = os.environ["OPENAI_API_KEY"]
 
-logging.getLogger("ebooklib").setLevel(logging.ERROR)
-
+#logging.getLogger("ebooklib").setLevel(logging.ERROR)
 
 console = Console()
 
 
-# *****************************************************************************************
-# Define commandline flags and arguments
-# *****************************************************************************************
-
-parser = argparse.ArgumentParser(
-    description="Generate a quiz from an epub"
-)
-parser.add_argument(
-    "action",
-    choices=[
-        "init",
-        "load",
-        "group",
-        "blocks",
-        "groups",
-        "get",
-        "prompt",
-        "set-group"
-    ],
-    help="The action to perform ",
-)
-
-
-parser.add_argument("--db", help="The database file", required=False, default="promptlab.db")
-parser.add_argument("--fn", help="Filename", required=False, default="test.epub")
-parser.add_argument("--description", help="Description of the groups", required=False, default="")
-parser.add_argument("--tag", help="Tag to filter on", required=False, default="*")
-parser.add_argument("--script", help="Script to execute", required=False)
-parser.add_argument("--block_id", help="Block ID to use", required=False)
-parser.add_argument("--group_id", help="group ID to use", required=False)
-parser.add_argument("--prompt", help="Prompt to use", required=False)
-parser.add_argument("--model", help="Model to use", required=False, default="gpt-4")
-
-args = parser.parse_args()
 
 # *****************************************************************************************
 # Utiltiy functions
@@ -88,7 +49,7 @@ def load(fn):
     return data
 
 def hash(txt):
-    return hashlib.sha256(txt.encode('utf-8')).hexdigest()
+    return str(hashlib.sha256(txt.encode('utf-8')).hexdigest())
 
 def execute(script,block):
     # Create a dictionary to use as the local variables
@@ -177,20 +138,60 @@ def fetch_blocks_by_id(id):
 #  Prompts
 # *****************************************************************************************
 
-
-def create_prompt_response(block_id,prompt_fn, prompt,arguments, elapsed_time_in_seconds, response_json):
+def create_prompt_response(prompt_log_id, block_id, prompt_text, response, elapsed_time_in_seconds):
     sql = load("sql/create_prompt_response.sql")
     conn = sqlite3.connect(args.db)
     c = conn.cursor()
-    response_txt = str(response_json.choices[0].message.content)
-    prompt_hash = hash(prompt)
-    response_json_str = json.dumps(response_json)
-    c.execute(sql, (block_id, prompt_fn, prompt, prompt_hash, response_txt, response_json_str, arguments, elapsed_time_in_seconds))
+    response_txt = str(response.choices[0].message.content)
+    c.execute(sql, (prompt_log_id, block_id, hash(prompt_text), response_txt, elapsed_time_in_seconds,))
     # Unlike other group, this should alsways be committed directly
     conn.commit()
     conn.close()
     prompt_response_id = c.lastrowid
     return prompt_response_id
+
+def create_prompt_log(prompt_fn, prompt):
+    sql = load("sql/create_prompt_log.sql")
+    conn = sqlite3.connect(args.db)
+    c = conn.cursor()
+    arguments = " ".join(sys.argv)
+    c.execute(sql, (prompt_fn, prompt, arguments))
+    conn.commit()
+    conn.close()
+    prompt_log_id = c.lastrowid
+    return prompt_log_id
+
+def response_already_exists(prompt_text):
+    sql = "select * from prompt_responses where prompt_hash like ?"
+    conn = sqlite3.connect(args.db)
+    c = conn.cursor()
+    c.execute(sql, (hash(prompt_text),))
+    result = c.fetchone()
+    conn.close()
+    return result is not None
+
+def fetch_prompts():
+    sql = load("sql/fetch_prompts.sql.jinja")
+    template = Template(sql)
+    where_clause = ""
+    tuple = ()
+    if args.block_id is not None:
+        where_clause = "b.id = ?"
+        tuple = (int(args.block_id),)
+    elif args.tag is not None:
+        where_clause = "b.tag like ?"
+        tuple = (args.tag.replace("*", "%"),)
+    sql = template.render(where_clause=where_clause)
+    print(sql, tuple)
+    conn = sqlite3.connect(args.db)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute(sql, tuple)
+    results = c.fetchall()
+    conn.close()
+    return results
+
+
 
 # *****************************************************************************************
 # Action groups 
@@ -217,7 +218,7 @@ def action_init():
     conn.close()
 
 # Loads a file into the database
-def action_load():
+def action_block():
     console.log("Loading file", args.fn)
     # If the load fails then we want to rollback the entire transaction
     try:
@@ -283,14 +284,19 @@ def action_transform(script):
         conn.close()
 
 def action_prompt(prompt_fn):
-    template = Template(load(prompt_fn))
+    prompt = load(prompt_fn)
+    template = Template(prompt)
     if args.block_id is not None:
         blocks = fetch_blocks_by_id(args.block_id)
     else:
         blocks = fetch_blocks(args.tag)
     # Apply the template to each block
+    prompt_log_id = create_prompt_log(prompt_fn, prompt)
     for b in blocks:
         prompt_text = template.render(block=b['block'])
+        if response_already_exists(prompt_text):
+            console.log("Prompt already exists for", b['id'], b['tag'], b['block'][:40].replace("\n", " "))
+            continue
         console.log("Prompting block", b['id'], b['tag'], b['block'][:40].replace("\n", " "))
         start = time.time()
         response = openai.ChatCompletion.create(
@@ -301,7 +307,7 @@ def action_prompt(prompt_fn):
         )
         end = time.time()
         # Save the response to the database
-        create_prompt_response(b['id'],prompt_fn, prompt_text," ".join(sys.argv), end-start, response)
+        create_prompt_response(prompt_log_id, b['id'], prompt_text, response, end - start)
 
         console.log("Elapsed time",end-start," -> ", response.choices[0].message.content)
 
@@ -353,6 +359,14 @@ def action_groups():
     console.print(table)
     console.print(f"\nCurrent group_id: {current_group_id}")
     console.print(f"{len(results)} group(s) in total\n")
+
+def action_prompts():
+    prompts = fetch_prompts()
+    for op in prompts:
+        print("***************")
+        print(op['block_id'], op['tag'],op["block"].replace("\n"," ")[:50],"\n")
+        print(op['response'])
+
     
 
 def action_get():
@@ -373,21 +387,53 @@ def action_tree():
     console.print("\n".join(out))
 
 
-# --------------------------------------------------------------------------------------------
-# Begin actions
-# --------------------------------------------------------------------------------------------
+# *****************************************************************************************
+# Define commandline flags, arguments, and the functions that love them
+# *****************************************************************************************
+
+parser = argparse.ArgumentParser(
+    description="Mangage prommpts across long blocks of text"
+)
+parser.add_argument(
+    "action",
+    choices=[
+        "init",
+        "block",
+        "group",
+        "groups",
+        "blocks",
+        "get",
+        "prompt",
+        "prompts",
+        "set-group"
+    ],
+    help="The action to perform ",
+)
+
+
+parser.add_argument("--db", help="The database file", required=False, default="promptlab.db")
+parser.add_argument("--fn", help="Filename", required=False, default="test.epub")
+parser.add_argument("--description", help="Description of the groups", required=False, default="")
+parser.add_argument("--tag", help="Tag to filter on", required=False, default="*")
+parser.add_argument("--script", help="Script to execute", required=False)
+parser.add_argument("--block_id", help="Block ID to use", required=False)
+parser.add_argument("--group_id", help="group ID to use", required=False)
+parser.add_argument("--prompt", help="Prompt to use", required=False)
+parser.add_argument("--model", help="Model to use", required=False, default="gpt-4")
+
+args = parser.parse_args()
 
 if args.action == 'init':
     action_init()
     console.log("Initialized database")
     exit(0)
 
-if args.action == 'load':
+if args.action == 'block':
     check_db(args.db)
     if args.fn is None:
         console.log("You must provide a --fn argument for the file to read")
         exit(1)
-    action_load()
+    action_block()
 
 if args.action =='group':
     check_db(args.db)
@@ -432,6 +478,11 @@ if args.action == 'set-group':
     update_current_group(c, args.group_id)
     conn.commit()
     conn.close()
+
+if args.action == 'prompts':
+    check_db(args.db)
+    action_prompts()
+    exit(0)
     
 
     

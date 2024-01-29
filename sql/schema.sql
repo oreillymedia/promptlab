@@ -21,16 +21,21 @@ create table if not exists blocks (
         
 );
 
-create table if not exists prompt_reponses (
+create table if not exists prompt_responses (
     id integer primary key autoincrement,
+    prompt_log_id int,
     block_id int,
-    prompt_name text,
-    prompt text,
     prompt_hash text,
     response text,
-    response_json text,
-    arguments text,
     elapsed_time_in_seconds float,
+    created_at datetime DEFAULT CURRENT_TIMESTAMP
+);
+
+create table if not exists prompt_log (
+    id integer primary key autoincrement,
+    prompt_fn text,
+    prompt text,
+    arguments text,
     created_at datetime DEFAULT CURRENT_TIMESTAMP
 );
 

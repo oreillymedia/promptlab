@@ -1,19 +1,14 @@
-INSERT INTO prompt_reponses (
+INSERT INTO prompt_responses (
+    prompt_log_id,
     block_id,
-    prompt_name,
-    prompt,
     prompt_hash,
     response,
-    response_json,
-    arguments,
     elapsed_time_in_seconds
 ) VALUES (
     ?, 
-    ?,
     ?, 
     ?, 
-    ?, 
-    ?,
     ?,
     ?
 )
+
