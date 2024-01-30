@@ -20,6 +20,10 @@ A few other important ideas:
 
 -- [SQLite3](https://www.sqlite.org/index.html). Promptlab uses SQLite3 as the database. The database is created automatically when you run `init`. You can use the [SQLite3 command line tool](https://www.sqlite.org/cli.html) to inspect the database directly or use a GUI like [DB Browser for SQLite](https://sqlitebrowser.org/).
 
+# Installation
+
+You'll need Python 3.10.9 or later. Clone this repo and run `pip install -r requirements.txt` to install the dependencies.
+
 # Usage
 
 ## Initialize and empty database
