@@ -125,3 +125,26 @@ Note that the results of each prompt are saved, so if you rerun the command on a
 ```
 python main.py prompt --tag=part03* --prompt=prompts/learning-objective.jinja
 ```
+
+### Prompt chaining
+
+We can use the `prompt` command to create a file and then load that as a block, like this:
+
+```
+python main.py prompts --tag=part03* > part03-learning-objectives.md
+
+python main.py load --fn=part03-learning-objectives.md
+
+python main.py blocks --tag=part03-learning-objectives*
+
+```
+
+Let's apply this prompt to it:
+
+```
+cat prompts/synthesize-learning-objectives.jinja
+```
+
+```
+python main.py prompt --tag=part03-learning-objectives* --prompt=prompts/synthesize-learning-objectives.jinja
+```

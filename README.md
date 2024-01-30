@@ -18,7 +18,7 @@ A few other important ideas:
 
 - _Init_ -- Creating a new, empty SQLITE database to store the content. By default, the database is named `promptlab.db`.
 
--- [SQLite3](https://www.sqlite.org/index.html). Promptlab uses SQLite3 as the database. The database is created automatically when you run `init`. You can use the [SQLite3 command line tool](https://www.sqlite.org/cli.html) to inspect the database directly or use a GUI like [DB Browser for SQLite](https://sqlitebrowser.org/).
+- [SQLite3](https://www.sqlite.org/index.html). Promptlab uses SQLite3 as the database. The database is created automatically when you run `init`. You can use the [SQLite3 command line tool](https://www.sqlite.org/cli.html) to inspect the database directly or use a GUI like [DB Browser for SQLite](https://sqlitebrowser.org/).
 
 # Installation
 
