@@ -243,10 +243,6 @@ $ python main.py prompt --prompt=prompts/summarize.jinja
 
 - Good chapter on splitting for LLMs -- https://learning.oreilly.com/library/view/prompt-engineering-for/9781098153427/ch03.html#id183
 
-```
+- List of findings from the instructional designers -- https://docs.google.com/presentation/d/1qXfZwfKPAuye778Q7ViwcS_dfe6gpDj07wFGD9dWnyo/edit#slide=id.g2aba9c57b95_0_38
 
-```
-
-```
-
-```
+-- List of sample prompts -- https://docs.google.com/document/d/14pl54fxGDEt593JFCOLPL2Ffcfuz7Al4CROll_dgGGM/edit#heading=h.k2zz50486ydb

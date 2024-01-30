@@ -370,8 +370,7 @@ def action_prompts():
         print(op['response'],"\n")
 
     
-
-def action_get():
+def action_dump():
     if args.block_id is not None:
         blocks = fetch_blocks_by_id(args.block_id)
     else:
@@ -401,10 +400,10 @@ parser.add_argument(
     choices=[
         "init",
         "load",
+        "dump",
         "group",
         "groups",
         "blocks",
-        "get",
         "prompt",
         "prompts",
         "set-group"
@@ -457,9 +456,9 @@ if args.action == 'groups':
     action_groups()
     exit(0)
 
-if args.action == 'get':
+if args.action == 'dump':
     check_db(args.db)
-    action_get()
+    action_dump()
     exit(0)
 
 if args.action == 'prompt':
