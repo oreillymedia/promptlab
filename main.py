@@ -182,7 +182,6 @@ def fetch_prompts():
         where_clause = "b.tag like ?"
         tuple = (args.tag.replace("*", "%"),)
     sql = template.render(where_clause=where_clause)
-    print(sql, tuple)
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
@@ -218,7 +217,7 @@ def action_init():
     conn.close()
 
 # Loads a file into the database
-def action_block():
+def action_load():
     console.log("Loading file", args.fn)
     # If the load fails then we want to rollback the entire transaction
     try:
@@ -313,7 +312,11 @@ def action_prompt(prompt_fn):
 
 
 def action_blocks():
-    blocks = fetch_blocks(args.tag)
+    blocks = []
+    if args.block_id is not None:
+        blocks = fetch_blocks_by_id(args.block_id)
+    else:
+        blocks = fetch_blocks(args.tag)
     current_group = get_current_group()
     table = Table(title=f"Blocks for group id {current_group}", header_style="bold magenta")
     table.add_column("block_id", justify="center", style="cyan")
@@ -363,9 +366,8 @@ def action_groups():
 def action_prompts():
     prompts = fetch_prompts()
     for op in prompts:
-        print("***************")
-        print(op['block_id'], op['tag'],op["block"].replace("\n"," ")[:50],"\n")
-        print(op['response'])
+        #print(op['block_id'], op['tag'],op["block"].replace("\n"," ")[:50],"\n")
+        print(op['response'],"\n")
 
     
 
@@ -398,7 +400,7 @@ parser.add_argument(
     "action",
     choices=[
         "init",
-        "block",
+        "load",
         "group",
         "groups",
         "blocks",
@@ -428,12 +430,12 @@ if args.action == 'init':
     console.log("Initialized database")
     exit(0)
 
-if args.action == 'block':
+if args.action == 'load':
     check_db(args.db)
     if args.fn is None:
         console.log("You must provide a --fn argument for the file to read")
         exit(1)
-    action_block()
+    action_load()
 
 if args.action =='group':
     check_db(args.db)
