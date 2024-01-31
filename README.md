@@ -246,3 +246,9 @@ $ python main.py prompt --prompt=prompts/summarize.jinja
 - List of findings from the instructional designers -- https://docs.google.com/presentation/d/1qXfZwfKPAuye778Q7ViwcS_dfe6gpDj07wFGD9dWnyo/edit#slide=id.g2aba9c57b95_0_38
 
 -- List of sample prompts -- https://docs.google.com/document/d/14pl54fxGDEt593JFCOLPL2Ffcfuz7Al4CROll_dgGGM/edit#heading=h.k2zz50486ydb
+
+-- Ticket with Markdown spec for question ingestion - https://github.com/oreillymedia/quiz-service/pull/136
+
+-- Demo video - https://drive.google.com/file/d/1hEdV7E3cxOrU2Kzw9bDQYPMF1CZuyFhf/view?usp=sharing
+
+-- text-based course brief - https://docs.google.com/document/d/1JOAj0UBv8PzE3nhNmRlOQMFsYerhQ-_hBWT_5Vn9JZw/edit

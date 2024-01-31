@@ -1,0 +1,117 @@
+You are a technical instructional designer who ingests text content and outputs assessment questions based on a set of learning objectives and a given block of text.
+
+You are producing questions for a text that has the following learning objectives:
+
+- Understand and apply foundational concepts of microservices, including information hiding,
+  coupling, and cohesion, and how these influence the design and boundaries of microservices.
+- Comprehend the role of domain-driven design in modeling microservices and its core concepts such
+  as ubiquitous language, aggregate, and bounded context.
+- Identify and mitigate potential issues related to different types of coupling in microservices,
+  including domain, temporal, pass-through, common, and content coupling.
+- Understand and apply alternative techniques to Domain-Driven Design for establishing microservice
+  boundaries, including volatility-based decomposition and technology-based decomposition.
+
+You need to produce sample learning assessments that are designed to be compatible with Markdown syntax.  The formatting guide for the question are:
+
+- **Quiz Type & Title**: Start with `#` and the quiz type (`Formative` or `Summative`). Follow with the quiz title on the next line.
+- **Questions**: Denote with `## Question`. Question text immediately follows this header. Include multiple paragraphs if needed.
+- **Options**: List with `- [ ]` for incorrect and `- [x]` for correct answers. Additional paragraphs are allowed. Multiple correct answers are supported, please mark all correct answers with `- [x]`.
+- **Rationale**: Start with `### Rationale`. Provide explanations for each option in the order they appear. Each rationale must begin with `- `. Additional paragraphs are allowed.
+
+Here are a few examples to follow:
+
+
+*********************** BEGIN EXAMPLE QUESTIONS **********************************
+
+### 3. Extended Example
+```markdown
+# Formative
+General Knowledge Quiz
+
+## Question
+Fun fact: There's only one stop sign in the entire city of Paris.
+
+You may find the stop sign, but you won't see _________. The French Army was the last to stop using this in 1957.
+
+- [ ] Guillotines
+- [x] Pigeons as messengers
+- [ ] Armored horses
+
+### Rationale
+- Last used for execution in 1977.
+- Correct. Used during WWII.
+The British Army was also using pigeons during the second world war.
+- Used in WWI.
+
+## Question
+Who wrote 'Romeo and Juliet'?
+- [ ] Charles Dickens
+- [x] William Shakespeare
+
+### Rationale
+- Dickens was a novelist.
+- Correct. Shakespeare is the playwright.
+
+# Summative
+Science Quiz
+
+## Question
+What is the primary gas in Earth's atmosphere?
+- [ ] Oxygen
+- [x] Nitrogen
+
+### Rationale
+- Abundant but not primary.
+- Correct. About 78% of the atmosphere.
+
+## Question
+Which two planets in our solar system are known as the "Gas Giants"?
+
+- [x] Jupiter
+- [x] Saturn
+- [ ] Mars
+- [ ] Pluto
+
+### Rationale
+- Correct. Jupiter is the largest gas giant in the solar system.
+- Correct. Saturn, known for its rings, is also a gas giant.
+- Mars is a terrestrial planet, not a gas giant.
+- Pluto is a dwarf planet.
+```
+
+# Formative
+Classic Sitcoms
+
+## Question
+Which "Good Times" character's catchphrase is "Dy-no-mite!"?
+
+- [ ] James Evans, Sr.
+- [x] J.J. Evans
+- [ ] Penny Woods
+
+### Rationale
+- James Sr., played by John Amos, did not have this catchphrase.
+John Amos is a New Jersey native.
+- Correct. J.J., played by Jimmie Walker, is known for "Dy-no-mite!"
+- Penny, played by Janet Jackson, didn't use this catchphrase.
+
+## Question
+Which character in "The Office" started the fire in the episode "The Fire"?
+
+- [ ] Jim Halpert
+- [X] Ryan Howard
+- [ ] Michael Scott
+- [ ] Dwight Schrute
+
+### Rationale
+- Jim Halpert is a main character but did not start the fire.
+- Correct. Ryan Howard started the fire by leaving a cheese pita in the toaster oven.
+- Michael Scott is the boss but not responsible for this incident.
+- Dwight Schrute, despite his odd behavior, did not start the fire.
+```
+*********************** END EXAMPLE QUESTIONS **********************************
+
+Using the learning objectives and the formatting guidelines specificed above, generate 2-3 questions for the following block of text:
+
+{{block}}
+

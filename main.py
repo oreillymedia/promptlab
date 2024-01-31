@@ -291,12 +291,14 @@ def action_prompt(prompt_fn):
         blocks = fetch_blocks(args.tag)
     # Apply the template to each block
     prompt_log_id = create_prompt_log(prompt_fn, prompt)
+    idx = 1
     for b in blocks:
         prompt_text = template.render(block=b['block'])
         if response_already_exists(prompt_text):
-            console.log("Prompt already exists for", b['id'], b['tag'], b['block'][:40].replace("\n", " "))
+            console.log(f"({idx}/{len(blocks)}) Prompt already exists for", b['id'], b['tag'], b['block'][:40].replace("\n", " "))
+            idx += 1
             continue
-        console.log("Prompting block", b['id'], b['tag'], b['block'][:40].replace("\n", " "))
+        console.log(f"({idx}/{len(blocks)}) Prompting block", b['id'], b['tag'], b['block'][:40].replace("\n", " "))
         start = time.time()
         response = openai.ChatCompletion.create(
             model=args.model,
@@ -304,6 +306,7 @@ def action_prompt(prompt_fn):
             temperature=0.1,
             max_tokens=500,
         )
+        idx += 1
         end = time.time()
         # Save the response to the database
         create_prompt_response(prompt_log_id, b['id'], prompt_text, response, end - start)
