@@ -178,6 +178,9 @@ def fetch_prompts():
     if args.block_id is not None:
         where_clause = "b.id = ?"
         tuple = (int(args.block_id),)
+    elif args.prompt is not None:
+        where_clause = "pl.prompt_fn like ?"
+        tuple = (args.prompt.replace("*", "%"),)
     elif args.tag is not None:
         where_clause = "b.tag like ?"
         tuple = (args.tag.replace("*", "%"),)
@@ -304,7 +307,7 @@ def action_prompt(prompt_fn):
             model=args.model,
             messages=[{"role": "user", "content": prompt_text}],
             temperature=0.1,
-            max_tokens=500,
+            max_tokens=1000,
         )
         idx += 1
         end = time.time()

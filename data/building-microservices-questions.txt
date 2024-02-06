@@ -1,0 +1,458 @@
+Building Microservices, 2nd Edition
+AI-Generated Questions
+
+Chapter 1. What are Microservices
+Learning Objectives
+
+After reading this text, the learner will understand the fundamentals of microservices and monoliths, their characteristics, advantages, and design principles.
+
+After reading this text, the learner will be able to discuss the transition from monolithic to microservice architectures, outlining their benefits and challenges.
+Quiz Questions
+1. What is a microservice?
+A. A large, monolithic application 
+B. A type of database 
+C. A network protocol 
+[Correct Answer] D. An independently releasable service modeled around a business domain
+
+[Rationales] 
+A. A microservice is not a monolithic application; it is a part of a larger system, designed to be independently deployable. 
+B. A microservice is not a type of database; it can encapsulate its own database, but it is not a database itself. 
+C. A microservice is not a network protocol; it uses network protocols to communicate with other services. 
+D. A microservice is an independently releasable service that encapsulates specific functionality and communicates with other services via network protocols.
+
+2. What is a key advantage of modeling microservices around business domains?
+
+A. It simplifies the development process.
+
+B. It allows for easier integration with other systems.
+
+[Correct Answer] C. It makes it easier to roll out new functionality and recombine microservices in different ways.
+
+D. It increases the cohesion of technical functionality.
+
+[Rationales]
+
+A. While modeling microservices around business domains may streamline certain aspects of development, the text does not specifically state that it simplifies the entire development process.
+
+B. The text does not mention easier integration with other systems as a benefit of modeling microservices around business domains.
+
+C. The text specifically mentions that modeling microservices around business domains can make it easier to roll out new functionality and recombine microservices in different ways.
+
+D. The text actually suggests that microservices prioritize high cohesion of business functionality over high cohesion of technical functionality.
+
+3. Why is it suggested that microservices should avoid the use of shared databases?
+
+A. It reduces the complexity of the system.
+
+[Correct Answer] B. It allows microservices to decide what data is shared and what is hidden, promoting clear separation of functionality.
+
+C. It improves the performance of the system.
+
+D. It makes the system more secure.
+
+[Rationales]
+
+A. Avoiding shared databases does not necessarily reduce the complexity of the system. In fact, it may add complexity as microservices need to communicate with each other to access data.
+
+B. The text specifically states that avoiding shared databases allows microservices to decide what data is shared and what is hidden, promoting a clear separation of functionality.
+
+C. While avoiding shared databases might impact performance in some ways, the text does not mention this as a reason to avoid shared databases.
+
+D. The text does not mention system security as a reason to avoid shared databases.
+
+4. What does Conway's law imply about system design?
+
+A. Systems are designed based on market trends.
+
+[Correct Answer] B. Systems are designed based on the communication structures of the organizations that design them.
+
+C. Systems are designed based on the technical skills of the team.
+
+D. Systems are designed based on the size of the organization.
+
+[Rationales]
+
+A. Conway's law does not mention market trends as a factor in system design.
+
+B. Conway's law specifically states that system designs are constrained to produce designs which are copies of the communication structures of the organizations that design them.
+
+C. While technical skills can influence system design, Conway's law does not specifically mention this aspect.
+
+D. Conway's law does not mention the size of the organization as a factor in system design.
+
+5. What is the advantage of aligning organization and architecture along vertical business lines?
+
+A. It simplifies the development process.
+
+[Correct Answer] B. It ensures that the scope of change is limited to one team, making changes more manageable.
+
+C. It reduces the need for communication between teams.
+
+D. It makes the system more secure.
+
+[Rationales]
+
+A. While aligning organization and architecture along vertical business lines can streamline certain aspects of development, the text does not specifically state that it simplifies the entire development process.
+
+B. The text specifically mentions that aligning organization and architecture along vertical business lines ensures that the scope of change is limited to one team, making changes more manageable.
+
+C. While communication between teams might be reduced in some cases, the text does not mention this as a specific advantage of aligning organization and architecture along vertical business lines.
+
+D. The text does not mention system security as an advantage of aligning organization and architecture along vertical business lines.
+
+6. What is a single-process monolith in software architecture?
+
+[Correct Answer] A. A system where all functionality is deployed together in a single process.
+
+B. A system where functionality is divided into separate modules but deployed together.
+
+C. A system that consists of multiple services but must be deployed together.
+
+D. A system where each module is deployed separately.
+
+[Rationales]
+
+A. The text specifically defines a single-process monolith as a system where all functionality is deployed together in a single process.
+
+B. This describes a modular monolith, not a single-process monolith.
+
+C. This describes a distributed monolith, not a single-process monolith.
+
+D. This is not a characteristic of a single-process monolith.
+
+7. What is a key advantage of a monolithic architecture?
+
+A. It eliminates the need for communication between teams.
+
+[Correct Answer] B. It simplifies deployment topology, potentially making developer workflows, monitoring, and troubleshooting easier.
+
+C. It allows for independent deployment of different functionalities.
+
+D. It reduces the risk of system failures.
+
+[Rationales]
+
+A. While a monolithic architecture might reduce some communication needs, the text does not present this as a key advantage.
+
+B. The text specifically mentions that a monolithic architecture can simplify deployment topology, potentially making developer workflows, monitoring, and troubleshooting easier.
+
+C. This is not a characteristic of a monolithic architecture; functionalities in a monolithic architecture are typically deployed together.
+
+D. The text does not mention reduced risk of system failures as an advantage of a monolithic architecture.
+
+8. What is a single-process monolith in software architecture?
+
+A. A system where all functionality is deployed together in a single process.
+
+B. A system where functionality is divided into separate modules but deployed together.
+
+C. A system that consists of multiple services but must be deployed together.
+
+D. A system where each module is deployed separately.
+
+[Correct Answer] A. A system where all functionality is deployed together in a single process.
+
+[Rationales]
+
+A. The text specifically defines a single-process monolith as a system where all functionality is deployed together in a single process.
+
+B. This describes a modular monolith, not a single-process monolith.
+
+C. This describes a distributed monolith, not a single-process monolith.
+
+D. This is not a characteristic of a single-process monolith.
+
+9. What is a key advantage of a monolithic architecture?
+
+A. It eliminates the need for communication between teams.
+
+B. It simplifies deployment topology, potentially making developer workflows, monitoring, and troubleshooting easier.
+
+C. It allows for independent deployment of different functionalities.
+
+D. It reduces the risk of system failures.
+
+[Correct Answer] B. It simplifies deployment topology, potentially making developer workflows, monitoring, and troubleshooting easier.
+
+[Rationales]
+
+A. While a monolithic architecture might reduce some communication needs, the text does not present this as a key advantage.
+
+B. The text specifically mentions that a monolithic architecture can simplify deployment topology, potentially making developer workflows, monitoring, and troubleshooting easier.
+
+C. This is not a characteristic of a monolithic architecture; functionalities in a monolithic architecture are typically deployed together.
+
+D. The text does not mention reduced risk of system failures as an advantage of a monolithic architecture.
+
+
+10. Which of the following is an advantage of using a microservices architecture over a monolithic architecture?
+A. Microservices require less computational resources.
+
+B. Microservices require fewer developers to maintain.
+
+[Correct Answer] C. Microservices allow for technology heterogeneity and independent scaling of services.
+
+D. Microservices eliminate the need for data storage.
+
+[Rationales]
+
+A. The amount of computational resources required depends on the complexity and usage of the service, not the architecture itself.
+
+B. The number of developers needed depends on the complexity and size of the project, not the architecture itself.
+
+C. Microservices allow different services to use different technologies (technology heterogeneity) and to scale independently based on their individual needs.
+
+D. Regardless of the architecture, data storage is a fundamental aspect of most applications.
+
+11. What is a key concept in improving the robustness of a microservices architecture?
+[Correct Answer] A. The bulkhead, which allows for isolation of failures and prevents cascading issues.
+
+B. The use of a single programming language across all services.
+
+C. The use of a single data storage system for all services.
+
+D. The deployment of all services simultaneously.
+
+[Rationales]
+
+A. The concept of a bulkhead allows for isolation of failures in a microservices architecture, preventing issues from cascading across the entire system.
+
+B. The use of a single programming language is not a requirement for improving robustness. In fact, one of the benefits of microservices is the ability to use different technologies within different services.
+
+C. Using a single data storage system is not a requirement for improving robustness. Different services can use different data storage systems based on their individual needs.
+
+D. One of the benefits of microservices is the ability to deploy services independently, which can reduce risks associated with deployment.
+
+
+12. Which of the following is a potential impact of adopting a microservice architecture?
+A. Decrease in overall system costs.
+
+B. Simplified reporting on monolithic databases.
+
+[Correct Answer] C. The need to consider how to develop when the entire system can't run on one machine.
+
+D. Elimination of the need for network resources.
+
+[Rationales]
+
+A. In the short term at least, adopting a microservice architecture is likely to increase costs due to the need to run more things—more processes, more computers, more network, more storage, and more supporting software.
+
+B. With a microservice architecture, data is scattered across multiple logically isolated schemas, which can make reporting more difficult.
+
+C. As the number of services increases, it may not be possible to run the entire system on a single developer machine, which can impact the developer experience.
+
+D. Network resources are still needed in a microservice architecture, possibly even more than in a monolithic architecture due to the distributed nature of microservices.
+
+12. What is one of the potential challenges when transitioning from a monolithic system to a microservice architecture?
+[Correct Answer] A. Managing and maintaining data consistency across multiple processes and databases
+B. Increasing the speed of system latency
+C. Reducing the scope and complexity of end-to-end tests
+D. Simplifying monitoring and troubleshooting processes
+[Rationales]
+A. Transitioning from a monolithic system to a microservice architecture involves shifting from a single database to multiple databases managed by different processes, posing challenges for data consistency.
+B. Transitioning to a microservice architecture can actually increase system latency due to the need for data to be serialized, transmitted, and deserialized over networks.
+C. The scope of end-to-end tests becomes larger with a microservice architecture, making them more complex and difficult to manage.
+D. Monitoring and troubleshooting become more complex in a microservice architecture due to the number of processes and potential failure
+
+Chapter 2. How to Model Microservices
+Learning Objectives
+After reading this text, the learner will be able to explain the importance of loose coupling in microservices and the potential problems of tight coupling, including the consequence of frequent changes to other parts of the system.
+After reading this text, the learner will be able to understand the relationship and interplay between coupling and cohesion in a system, and how they affect the system's stability and complexity. They will also be able to recognize different types of coupling and their implications in a microservice-based system.
+After reading this text, the learner will be able to comprehend the influence of various factors on system decomposition into microservices, understand the concept of volatility-based decomposition, and recognize the limitations of certain IT models.
+After studying this text, the learner will gain an understanding of the process of event storming in identifying domain events and the benefits of Domain-Driven Design, along with the concept of shared models within different bounded contexts and their mapping to microservices.
+
+Quiz Questions
+1. Which principle suggests that a microservice should hide as many details as possible behind its boundary, reducing the assumptions that one microservice makes about another?
+[Correct Answer] A. Information Hiding
+B. Cohesion
+C. Coupling
+D. Modularity
+
+Rationales
+A. Information Hiding is the principle that advocates for hiding as many details as possible behind a microservice boundary, reducing the assumptions that one microservice makes about another.
+B. Cohesion is about grouping related behaviors together, not about hiding information.
+C. Coupling refers to the degree to which one microservice depends on another, not about hiding information.
+D. Modularity is a broader concept related to the organization of components in a system, not specifically about hiding
+
+2. In the context of microservices, what does the principle of domain coupling refer to?
+[Correct Answer] A. The need for one microservice to interact with another to use its functionality
+B. The grouping of related functionality within a single microservice
+C. The constant change in the contract that a microservice exposes
+D. The tight binding of one service to another through an integration style
+
+Rationales
+A. Domain coupling refers to a situation where one microservice needs to interact with another to use its functionality.
+B. This describes the principle of cohesion, not domain coupling.
+C. This situation can lead to instability in microservice boundaries, but it doesn't describe domain coupling.
+D. This scenario can lead to tight coupling, but it doesn't describe domain
+
+3. What does pass-through coupling in a microservice architecture refer to?
+[Correct Answer] A. A situation where one microservice passes data to another because the data is needed by a downstream microservice
+B. The need for one microservice to interact with another to use its functionality
+C. A situation where one microservice needs another microservice to do something at the same time for the operation to complete
+D. The grouping of related functionality within a single microservice
+
+Rationales
+A. Pass-through coupling describes a situation where one microservice passes data to another because the data is needed by a downstream microservice.
+B. This describes the principle of domain coupling, not pass-through coupling.
+C. This situation refers to temporal coupling, not pass-through coupling.
+D. This describes the principle of cohesion, not pass-through coupling.
+
+4. What is a potential issue with common coupling in microservices and a strategy to manage it?
+
+[Correct answer] A. Changes to the structure of shared data can impact multiple microservices; one strategy is to delegate the management of shared data states to a single microservice.
+
+B. Common coupling can lead to redundancy in code; one strategy is to use a shared database.
+
+C. Common coupling can cause microservices to become slow; one strategy is to use shared memory.
+
+D. Changes to the structure of shared data can lead to data loss; one strategy is to use a shared filesystem.
+
+Rationales
+
+A. The text explains that changes to shared data can affect multiple microservices, and one way to manage this is by delegating the management of state transitions to a single microservice.
+
+B. While redundancy in code can be an issue in software development, it is not a direct result of common coupling. Using a shared database can actually contribute to common coupling, not alleviate it.
+
+C. Although common coupling can lead to resource contention, it does not inherently cause microservices to become slow. Using shared memory is an example of common coupling, not a solution to it.
+
+D. The text does not mention data loss as a direct result of changes to shared data structures. Similarly, using a shared filesystem is an example of common coupling, not a solution to it.
+
+5. What is content coupling in microservices and how does the use of a ubiquitous language in domain-driven design aid in managing it?
+
+[Correct Answer] A. Content coupling refers to a service accessing another service's database and changing it directly; a ubiquitous language can help manage this by ensuring clear communication and understanding between services, and by making explicit what can or cannot be changed.
+
+B. Content coupling refers to an upstream service changing the internal state of a downstream service; a ubiquitous language can help prevent this by ensuring clear communication and understanding between services.
+
+C. Content coupling refers to a service changing its own internal state; a ubiquitous language can help prevent this by ensuring a consistent language in code.
+
+D. Content coupling refers to two or more services sharing the same data; a ubiquitous language can help prevent this by ensuring a shared understanding of data structures.
+
+Rationales
+
+A. Content coupling refers to a service accessing another service's database and changing it directly. A ubiquitous language can aid in managing this by improving communication and understanding between services, and by making explicit what can or cannot be changed.
+
+B. While the first part of the answer correctly defines content coupling, a ubiquitous language does not directly prevent content coupling. It aids in communication and understanding but does not inherently prevent a service from changing another's internal state.
+
+C. This answer incorrectly defines content coupling. Content coupling is not about a service changing its own internal state.
+
+D. This answer confuses content coupling with common coupling. Common coupling involves multiple services sharing the same data, not content coupling.
+
+6. In domain-driven design, how do aggregates and bounded contexts contribute to the organization and functionality of microservices?
+
+A. Aggregates are arbitrary collections of objects, and bounded contexts represent the smallest units that should be taken out of a database.
+
+[Correct Answer] B. Aggregates represent real-world domain concepts with a life cycle and are managed by one microservice, while bounded contexts represent larger organizational boundaries, containing one or more aggregates and possibly hiding some internal implementation details.
+
+C. Aggregates are the smallest units that should be taken out of a database, and bounded contexts are arbitrary collections of objects.
+
+D. Aggregates represent larger organizational boundaries, while bounded contexts represent real-world domain concepts with a life cycle and are managed by one microservice.
+
+Rationales
+
+A. This answer incorrectly defines both aggregates and bounded contexts. Aggregates are not arbitrary collections of objects, and bounded contexts are not the smallest units that should be taken out of a database.
+
+B. Aggregates represent real-world domain concepts with a life cycle and are managed by one microservice, while bounded contexts represent larger organizational boundaries, containing one or more aggregates and possibly hiding some internal implementation details.
+
+C. This answer incorrectly defines both aggregates and bounded contexts. Aggregates are not the smallest units that should be taken out of a database, and bounded contexts are not arbitrary collections of objects.
+
+D. This answer swaps the definitions of aggregates and bounded contexts. Aggregates are not larger organizational boundaries, and bounded contexts do not represent real-world domain concepts with a life cycle managed by one
+
+7. What is a shared model in the context of bounded contexts?
+
+A. A model that is copied across all contexts.
+
+B. A model that only exists in one context.
+
+C. A model that conceptually exists in more than one context but may have different meanings and names in each context.
+
+[Correct Answer] D. A model that is identical in all contexts.
+Rationales:
+
+A. This is incorrect because a shared model is not simply copied across all contexts. It may have different meanings and names in each context.
+
+B. This is incorrect because a shared model, by definition, exists in more than one context.
+
+C. This is correct because a shared model conceptually exists in more than one context and may have different meanings and names in each context.
+
+D. This is incorrect because a shared model is not identical in all contexts. It may have different meanings and names in each context.
+
+8. What is the purpose of event storming?
+
+A. To brainstorm individually and develop a personal understanding of the domain model.
+
+B. To ensure all stakeholders are in the same room at the same time.
+
+C. To develop a shared, joined-up view of the domain model through a collaborative brainstorming exercise involving both technical and non-technical stakeholders.
+
+[Correct Answer] D. To organize logistics for a project.
+
+A. Event storming is a collaborative exercise, not an individual one.
+
+B. While having all stakeholders in the same room at the same time is a part of event storming, it is not its main purpose.
+
+C. Event storming is designed to develop a shared, joined-up view of the domain model through a collaborative brainstorming exercise involving both technical and non-technical stakeholders.
+
+D. Event storming is not primarily about organizing logistics for a project.
+
+9. What is the primary purpose of Domain-Driven Design (DDD) in the context of microservices?
+
+A. To standardize APIs across all services.
+
+B. To hide information and present a clear boundary to the wider system, allowing internal complexity to change without impacting other parts of the system, and to define a common, ubiquitous language for defining microservice endpoints.
+
+C. To ensure all microservices have the same functionality.
+
+[Correct Answer] D. To increase the complexity of the system.
+
+Rationales:
+
+A. While standardizing APIs can be a part of DDD, it is not its primary purpose in the context of microservices.
+
+B. This is correct. DDD in the context of microservices is about hiding information and presenting a clear boundary to the wider system, allowing internal complexity to change without impacting other parts of the system. It also focuses on defining a common, ubiquitous language for defining microservice endpoints.
+
+C. This is incorrect. DDD does not aim to ensure all microservices have the same functionality. In fact, different microservices can have different functionalities based on their specific bounded contexts.
+
+D. This is incorrect. DDD does not aim to increase the complexity of the system. In fact, it aims to manage complexity by presenting a clear boundary to the wider system and defining a common language for microservice endpoints.
+
+
+10. What is the primary consideration in volatility-based decomposition?
+
+A. The size of the system.
+
+B. The business domain of the system.
+
+C. The parts of the system undergoing more frequent change to enable more effective work on those parts.
+
+[Correct Answer] D. The number of users of the system.
+
+Rationales:
+
+A. The size of the system is not the primary consideration in volatility-based decomposition. It is about identifying parts of the system that are changing more frequently.
+
+B. While the business domain is important in system decomposition, it is not the primary consideration in volatility-based decomposition.
+
+C. In volatility-based decomposition, the primary consideration is identifying the parts of the system undergoing more frequent change.
+
+D. The number of users of the system is not the primary consideration in volatility-based decomposition. It is about identifying parts of the system that are changing more frequently.
+
+11. Why might an organization need to consider further decomposition of a service along technical lines even after defining a service based on the business domain?
+
+A. If the organization wants to implement different parts of the service in different programming languages.
+
+B. If the service is too large.
+
+C. If the service is not frequently used.
+
+[Correct Answer] D. If the service is too simple.
+
+Rationales:
+
+A. If different parts of a service need to be implemented in different programming languages, the organization might need to decompose the service further along technical lines.
+
+B. The size of the service is not the primary reason for further decomposition along technical lines. The need to implement different parts of the service in different programming languages is a more likely reason.
+
+C. The frequency of use of a service is not a factor in deciding whether to decompose it further along technical lines.
+
+D. The simplicity of a service is not a reason for further decomposition along technical lines. The need to implement different parts of the service in different programming languages is a more likely reason.
+
