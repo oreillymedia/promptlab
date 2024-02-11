@@ -8,7 +8,8 @@ SELECT
    pr.response,
    pl.prompt_fn,
    pl.arguments,
-   pr.elapsed_time_in_seconds
+   pr.elapsed_time_in_seconds,
+   b.tag || '  ' || pl.arguments search_field
  FROM
 	prompt_responses pr
 	join blocks b on b.id = pr.block_id 

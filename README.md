@@ -39,13 +39,13 @@ python main.py init --db=database.db
 Load an initial file. The file can be either a single file or an EPUB. A single file is loaded into a new group and given a single block.
 
 ```
-python main.py load --file=example.html
+python main.py load --fn=example.html
 ```
 
 Loading an EPUB will create a group for each chapter and a block for each chapter:
 
 ```
-python main.py load --file=example.epub
+python main.py load --fn=example.epub
 ```
 
 ## Working with Groups
@@ -173,6 +173,14 @@ $ python main.py blocks --block_id=314
 Current group id = 4
 ```
 
+### Dumping blocks to a file
+
+You can use the `dump-blocks` command to write the blocks to standard output. You can use output redirection to write the blocks to a file. For example, to write all the blocks to a file named `part03.md`, you can use the following command:
+
+```
+$ python main.py dump-blocks --tag=part03* > part03.md
+```
+
 ## Prompts
 
 Prompts are templates that are combined with the text of a block and passed off to OpenAI for completions. For example:
@@ -205,6 +213,8 @@ $ python main.py prompt --block_id=314 --prompt=prompts/learning-objective.jinja
 * After reading this text, the learner will be able to discuss the advantages and disadvantages of using a data cube in data warehouses.
 ```
 
+You can include an optional `--msg=<message>` option to provide a message that will be stored with the prompt. This field is both useful for providing context to other users of the database, as well as being something that you can use for searching for prompts later.
+
 You can list the content of prompts using the `prompts` command:
 
 ```
@@ -213,21 +223,28 @@ $ python main.py prompts --tag=part03*
 coherent application architecture.
 * After reading this text, the learner will be able to recognize the importance of implementing mechanisms for moving data from one store
 to another in a large application.
-
-* After reading this text, the learner will be able to distinguish between Systems of Record and Derived Data Systems, understanding their
-roles and differences in data storage and processing.
-* After reading this text, the learner will be able to explain the importance of derived data and its role in improving performance on read
-queries, as well as the concept of data redundancy and denormalization.
-* After reading this text, the learner will be able to articulate the significance of clearly distinguishing between systems of record and
-derived data in system architecture, and how it brings clarity to the dataflow.
 ```
 
-Note that you can use output redirection to send the text to a file, load the file in as a new group, and then apply a new prompt to it. This enables you to chain prompts to build up more complex interactions. For example, you might have a new prompt that will summarize and condense all the individual learning objectives per section into a single learning objective for the chapter as a whole.
+You can search for all prompts with a message like this:
+
+```
+python main.py prompts --msg="Generate Quiz*"
+```
+
+You can use output redirection to send the text to a file, load the file in as a new group, and then apply a new prompt to it. This enables you to chain prompts to build up more complex interactions. For example, you might have a new prompt that will summarize and condense all the individual learning objectives per section into a single learning objective for the chapter as a whole.
 
 ```
 $ python main.py prompts --tag=part03* > part03-learning-objectives.md
 $ python main.py load --file=part03-learning-objectives.md
 $ python main.py prompt --prompt=prompts/summarize.jinja
+```
+
+### Dumping prompts to a file
+
+You can use the `dump-prompts` command to write the prompts to standard output. You can use output redirection to write the prompts to a file. For example, to write all the prompts to a file named `part03-learning-objectives.md`, you can use the following command:
+
+```
+$ python main.py dump-prompts --tag=part03* > part03-learning-objectives.md
 ```
 
 # ORM specific notes

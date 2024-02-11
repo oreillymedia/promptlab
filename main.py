@@ -19,6 +19,7 @@ import openai
 import json
 import hashlib
 import logging
+import requests
 
 
 load_dotenv(find_dotenv())
@@ -28,6 +29,9 @@ openai.api_key = os.environ["OPENAI_API_KEY"]
 #logging.getLogger("ebooklib").setLevel(logging.ERROR)
 
 console = Console()
+log = logging.getLogger("rich")
+
+VERSION = "0.1.0"
 
 
 
@@ -178,11 +182,8 @@ def fetch_prompts():
     if args.block_id is not None:
         where_clause = "b.id = ?"
         tuple = (int(args.block_id),)
-    elif args.prompt is not None:
-        where_clause = "pl.prompt_fn like ?"
-        tuple = (args.prompt.replace("*", "%"),)
     elif args.tag is not None:
-        where_clause = "b.tag like ?"
+        where_clause = "search_field like ?"
         tuple = (args.tag.replace("*", "%"),)
     sql = template.render(where_clause=where_clause)
     conn = sqlite3.connect(args.db)
@@ -192,6 +193,92 @@ def fetch_prompts():
     results = c.fetchall()
     conn.close()
     return results
+
+
+# *****************************************************************************************
+# Functions related to fetching a transcript
+# *****************************************************************************************
+
+def fetch_url(url):
+    console.log("[bold]Fetching... [/]: [italic]" + url + "[/]")
+    r = requests.get(url)
+    return r.json()
+
+
+# Fetch the table of contents given a work
+def fetch_toc_url(work):
+    url = f"https://learning.oreilly.com/api/v1/book/{work}/toc/"
+    return url
+
+
+# Fetch the transcript given a work and a fragment
+def fetch_transcript_url(work, fragment):
+    url = f"https://learning.oreilly.com/api/v1/book/{work}/chapter-content/{fragment}"
+    return url
+
+
+# Reads in a table of contents and flattens it into a list
+def flatten_toc(toc, out=[], depth=0):
+    for child in toc:
+        # deep Copy the cild into a new variable
+        rec = {
+            "id": child["id"],
+            "title": child["label"],
+            "url": child["url"],
+            "metadata": {
+                "full_path": child["full_path"],
+                "depth": child["depth"] + depth,
+            },
+        }
+        out.append(rec)
+        if "children" in child:
+            flatten_toc(child["children"], out, depth + 1)
+    return out
+
+
+# Fetch the transcript given a URL and return just the text
+def fetch_transcript_by_url(url):
+    console.log("[bold]Parsing... [/]: [italic]" + url + "[/]")
+    r = requests.get(url)
+    raw = r.text
+    soup = BeautifulSoup(raw, "html.parser")
+    transcript = ""
+    for p in soup.select(".transcript p"):
+        text = p.select_one(".text").get_text()
+        transcript += text + " "
+    return transcript
+
+
+def action_load_transcript():
+
+    # Fetch the work's table of contents
+    toc_url = fetch_toc_url(args.work)
+    toc = fetch_url(toc_url)
+    flattened_toc = flatten_toc(toc)
+    # Grab the transcript for each work and store it as metadata
+    try:
+        conn = sqlite3.connect(args.db)
+        conn.isolation_level = None
+        c = conn.cursor()
+        c.execute("BEGIN")
+        group_id = create_group(c)
+        for t in flattened_toc:
+            url = fetch_transcript_url(args.work, t["metadata"]["full_path"])
+            transcript = fetch_transcript_by_url(url)
+            level = "#"
+            if t["metadata"]["depth"] > 1:
+                level = "##"
+            md = f"{level} {t['title']}\n\n{transcript}"
+            create_block(c, group_id, md,  args.work,0)
+        update_current_group(c, group_id)
+        conn.commit()
+    except Exception as e:
+        console.log("Unable to process request:", e)
+        conn.rollback()
+    finally:
+        conn.close()
+
+
 
 
 
@@ -313,7 +400,6 @@ def action_prompt(prompt_fn):
         end = time.time()
         # Save the response to the database
         create_prompt_response(prompt_log_id, b['id'], prompt_text, response, end - start)
-
         console.log("Elapsed time",end-start," -> ", response.choices[0].message.content)
 
 
@@ -371,12 +457,23 @@ def action_groups():
 
 def action_prompts():
     prompts = fetch_prompts()
+    table = Table(title=f"Prompts that match your query", header_style="bold magenta")
+    table.add_column("prompt_id", justify="center", style="cyan")
+    table.add_column("block_id", justify="center", style="cyan")
+    table.add_column("search_field", justify="left")
+    table.add_column("block", justify="left")
     for op in prompts:
-        #print(op['block_id'], op['tag'],op["block"].replace("\n"," ")[:50],"\n")
-        print(op['response'],"\n")
+        # Convert the print statement to a rich table
+        table.add_row(
+            str(op["prompt_response_id"]),
+            str(op["block_id"]),
+            op["search_field"],
+            op["block"].replace("\n"," ")[:50]
+        )
+    console.print(table)
 
     
-def action_dump():
+def action_dump_blocks():
     if args.block_id is not None:
         blocks = fetch_blocks_by_id(args.block_id)
     else:
@@ -385,13 +482,12 @@ def action_dump():
     out = [b['block'] for b in blocks]
     console.print("\n".join(out))
 
-def action_tree():
-    if args.block_id is not None:
-        blocks = fetch_blocks_by_id(args.block_id)
-    else:
-        blocks = fetch_blocks(args.tag)
+def action_dump_prompts():
+    prompts = fetch_prompts()
     # Pull out the block element into it's own list
+    out = [p['response'] for p in prompts]
     console.print("\n".join(out))
+
 
 
 # *****************************************************************************************
@@ -406,13 +502,16 @@ parser.add_argument(
     choices=[
         "init",
         "load",
-        "dump",
+        "dump-blocks",
+        "dump-prompts",
         "group",
         "groups",
         "blocks",
         "prompt",
         "prompts",
-        "set-group"
+        "set-group",
+        "load-transcript",
+        "version"
     ],
     help="The action to perform ",
 )
@@ -422,11 +521,13 @@ parser.add_argument("--db", help="The database file", required=False, default="p
 parser.add_argument("--fn", help="Filename", required=False, default="test.epub")
 parser.add_argument("--description", help="Description of the groups", required=False, default="")
 parser.add_argument("--tag", help="Tag to filter on", required=False, default="*")
+parser.add_argument("--msg", help="Message for the operation for later search", required=False, default="*")
 parser.add_argument("--script", help="Script to execute", required=False)
 parser.add_argument("--block_id", help="Block ID to use", required=False)
 parser.add_argument("--group_id", help="group ID to use", required=False)
 parser.add_argument("--prompt", help="Prompt to use", required=False)
 parser.add_argument("--model", help="Model to use", required=False, default="gpt-4")
+parser.add_argument("--work", help="Work to use", required=False, default="9781098115302")
 
 args = parser.parse_args()
 
@@ -462,9 +563,14 @@ if args.action == 'groups':
     action_groups()
     exit(0)
 
-if args.action == 'dump':
+if args.action == 'dump-blocks':
     check_db(args.db)
-    action_dump()
+    action_dump_blocks()
+    exit(0)
+
+if args.action == 'dump-prompts':
+    check_db(args.db)
+    action_dump_prompts()
     exit(0)
 
 if args.action == 'prompt':
@@ -489,6 +595,18 @@ if args.action == 'set-group':
 if args.action == 'prompts':
     check_db(args.db)
     action_prompts()
+    exit(0)
+
+if args.action == 'load-transcript':
+    check_db(args.db)
+    if args.work is None:
+        console.log("You must provide a --work argument for the work to load")
+        exit(1)
+    action_load_transcript()
+    exit(0)
+
+if args.action == 'version':
+    console.log("Version", VERSION)
     exit(0)
     
 
