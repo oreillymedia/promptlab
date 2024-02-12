@@ -502,6 +502,7 @@ parser.add_argument(
     choices=[
         "init",
         "load",
+        "load-transcript",
         "dump-blocks",
         "dump-prompts",
         "group",
@@ -510,7 +511,6 @@ parser.add_argument(
         "prompt",
         "prompts",
         "set-group",
-        "load-transcript",
         "version"
     ],
     help="The action to perform ",

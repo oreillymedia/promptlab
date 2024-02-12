@@ -48,6 +48,14 @@ Loading an EPUB will create a group for each chapter and a block for each chapte
 python main.py load --fn=example.epub
 ```
 
+You can also load transcripts of a given work:
+
+```
+python main.py load-transcript --work=9781098115302
+```
+
+```
+
 ## Working with Groups
 
 Groups are sets of related blocks tied together by the original filename. For example, you might have an initial group of blocks representing 10 chapters in a book, a group that transforms those chapters into markdown, and a group that splits the chapters into smaller blocks.
@@ -67,7 +75,9 @@ The following scripts are included in the `transformations` directory:
 To run a script, use the `group` command and provide the script name using the `--script` option:
 
 ```
+
 python main.py group --script=transformations/html-section-split.py
+
 ```
 
 ### Listing groups
@@ -75,23 +85,27 @@ python main.py group --script=transformations/html-section-split.py
 To list all groups, use the `groups` command:
 
 ```
+
 python main.py groups
+
 ```
 
 The results will look something like this:
 
 ```
+
 ┏━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
-┃ id ┃ arguments                                            ┃ blocks ┃
+┃ id ┃ arguments ┃ blocks ┃
 ┡━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
-│ 1  │ main.py load                                         │ 26     │
-│ 2  │ main.py group --script=transformations/clean_epub.py │ 26     │
-│ 3  │ main.py group --script=transformations/soup-split.py │ 205    │
-│ 4  │ main.py group --script=transformations/html2md.py    │ 205    │
+│ 1 │ main.py load │ 26 │
+│ 2 │ main.py group --script=transformations/clean_epub.py │ 26 │
+│ 3 │ main.py group --script=transformations/soup-split.py │ 205 │
+│ 4 │ main.py group --script=transformations/html2md.py │ 205 │
 └────┴──────────────────────────────────────────────────────┴────────┘
 
 Current group_id: 4
 4 group(s) in total
+
 ```
 
 ### Setting the current group
@@ -99,8 +113,10 @@ Current group_id: 4
 To set the current group, use the `set-group` command:
 
 ```
+
 python main.py set-group --group_id=1
-```
+
+````
 
 ### Writing your own group scripts
 
@@ -111,7 +127,7 @@ def main(b):
     return b.upper()
 
 result =  main(block)
-```
+````
 
 Here's an example that will break the block into blocks of 5,000 characters each:
 
