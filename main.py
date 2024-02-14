@@ -24,7 +24,6 @@ import requests
 
 load_dotenv(find_dotenv())
 
-openai.api_key = os.environ["OPENAI_API_KEY"]
 
 #logging.getLogger("ebooklib").setLevel(logging.ERROR)
 
@@ -44,7 +43,13 @@ def check_db(fn):
         console.log("Database file", fn, "does not exist.  Check the filename or run init to create a new database.")
         exit(1)
 
-def load(fn):
+def load(fn, config=False):
+    if config:
+        # find filepath for where the script is actually running
+        script_path = os.path.dirname(os.path.realpath(__file__))
+        # Join the filename with the script path
+        fn = os.path.join(script_path, fn)
+    # Check if the file exists
     if not os.path.isfile(fn):
         raise Exception(f"File does not exist:{fn}" )
     # Load and return the file
@@ -70,7 +75,7 @@ def execute(script,block):
 # *****************************************************************************************
 
 def create_group(c):
-    sql = load("sql/create_group.sql")
+    sql = load("sql/create_group.sql", True)
     arguments = " ".join(sys.argv)
     c.execute(sql, (arguments,))
     group_id = c.lastrowid
@@ -86,7 +91,7 @@ def get_current_group():
     return int(group_id)
 
 def fetch_groups():
-    sql = load("sql/fetch_groups.sql")
+    sql = load("sql/fetch_groups.sql", True)
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
@@ -105,7 +110,7 @@ def update_current_group(c, group_id):
 # *****************************************************************************************
 
 def create_block(c, group_id, block, tag, parent_id):
-    sql = load("sql/create_block.sql")
+    sql = load("sql/create_block.sql", True)
     c.execute(sql, (group_id, block, tag, parent_id))
     block_id = c.lastrowid
     return block_id
@@ -114,9 +119,9 @@ def fetch_blocks(tag="*", latest=True):
     # Replace the * with a pct, which is what sqlite3 requires for wildcards
     tag = tag.replace("*", "%")
     if latest:
-        sql = load("sql/fetch_latest_blocks.sql")
+        sql = load("sql/fetch_latest_blocks.sql", True)
     else:
-        sql = load("sql/fetch_blocks.sql")
+        sql = load("sql/fetch_blocks.sql", True)
     # Grab the data
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
@@ -128,7 +133,7 @@ def fetch_blocks(tag="*", latest=True):
 
 def fetch_blocks_by_id(id):
     # Replace the * with a pct, which is what sqlite3 requires for wildcards
-    sql = load("sql/fetch_block_by_id.sql")
+    sql = load("sql/fetch_block_by_id.sql", True)
     # Grab the data
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
@@ -143,7 +148,7 @@ def fetch_blocks_by_id(id):
 # *****************************************************************************************
 
 def create_prompt_response(prompt_log_id, block_id, prompt_text, response, elapsed_time_in_seconds):
-    sql = load("sql/create_prompt_response.sql")
+    sql = load("sql/create_prompt_response.sql", True)
     conn = sqlite3.connect(args.db)
     c = conn.cursor()
     response_txt = str(response.choices[0].message.content)
@@ -155,7 +160,7 @@ def create_prompt_response(prompt_log_id, block_id, prompt_text, response, elaps
     return prompt_response_id
 
 def create_prompt_log(prompt_fn, prompt):
-    sql = load("sql/create_prompt_log.sql")
+    sql = load("sql/create_prompt_log.sql", True)
     conn = sqlite3.connect(args.db)
     c = conn.cursor()
     arguments = " ".join(sys.argv)
@@ -175,7 +180,7 @@ def response_already_exists(prompt_text):
     return result is not None
 
 def fetch_prompts():
-    sql = load("sql/fetch_prompts.sql.jinja")
+    sql = load("sql/fetch_prompts.sql.jinja", True)
     template = Template(sql)
     where_clause = ""
     tuple = ()
@@ -373,6 +378,7 @@ def action_transform(script):
         conn.close()
 
 def action_prompt(prompt_fn):
+    openai.api_key = os.environ["OPENAI_API_KEY"]
     prompt = load(prompt_fn)
     template = Template(prompt)
     if args.block_id is not None:
@@ -534,7 +540,7 @@ args = parser.parse_args()
 if args.action == 'init':
     action_init()
     console.log("Initialized database")
-    exit(0)
+    sys.exit(0)
 
 if args.action == 'load':
     check_db(args.db)
@@ -547,39 +553,39 @@ if args.action =='group':
     check_db(args.db)
     if args.fn is None:
         console.log("You must provide a --fn argument for the file to read")
-        exit(1)
+        sys.exit(1)
     if args.script is None:
         console.log("You must provide a --script argument for the script to execute")
-        exit(1)
+        sys.exit(1)
     action_transform(args.script)
 
 if args.action == 'blocks':
     check_db(args.db)
     action_blocks()
-    exit(0)
+    sys.exit(0)
 
 if args.action == 'groups':
     check_db(args.db)
     action_groups()
-    exit(0)
+    sys.exit(0)
 
 if args.action == 'dump-blocks':
     check_db(args.db)
     action_dump_blocks()
-    exit(0)
+    sys.exit(0)
 
 if args.action == 'dump-prompts':
     check_db(args.db)
     action_dump_prompts()
-    exit(0)
+    sys.exit(0)
 
 if args.action == 'prompt':
     check_db(args.db)
     if args.prompt is None:
         console.log("You must provide a --prompt argument for the prompt")
-        exit(1)
+        sys.exit(1)
     action_prompt(args.prompt)
-    exit(0)
+    sys.exit(0)
 
 if args.action == 'set-group':
     check_db(args.db)
@@ -595,7 +601,7 @@ if args.action == 'set-group':
 if args.action == 'prompts':
     check_db(args.db)
     action_prompts()
-    exit(0)
+    sys.exit(0)
 
 if args.action == 'load-transcript':
     check_db(args.db)
@@ -603,11 +609,11 @@ if args.action == 'load-transcript':
         console.log("You must provide a --work argument for the work to load")
         exit(1)
     action_load_transcript()
-    exit(0)
+    sys.exit(0)
 
 if args.action == 'version':
     console.log("Version", VERSION)
-    exit(0)
+    sys.exit(0)
     
 
     

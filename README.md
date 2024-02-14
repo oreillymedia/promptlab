@@ -263,6 +263,18 @@ You can use the `dump-prompts` command to write the prompts to standard output. 
 $ python main.py dump-prompts --tag=part03* > part03-learning-objectives.md
 ```
 
+# Building standalone executable
+
+First, be sure you're set up to run pyinstaller by reading [Build an executable with pyinstaller](http://www.gregreda.com/2023/05/18/notes-on-using-pyinstaller-poetry-and-pyenv/). This is another good [tutorial on pyinstaller](https://www.devdungeon.com/content/pyinstaller-tutorial).
+
+```
+pyinstaller \
+   --name=promptlab \
+   --add-data="/Users/odewahn/Desktop/promptlab/sql/*:sql" \
+   --onefile \
+   ../promptlab/main.py
+```
+
 # ORM specific notes
 
 - Spec for bulk uploaded questions -- https://github.com/oreillymedia/quiz-service/blob/9cfa6f3b85c651701c952d5ad4640ea145685a4f/docs/bulk_upload_readme.md
