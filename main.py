@@ -20,18 +20,18 @@ import json
 import hashlib
 import logging
 import requests
+import glob
 
 
 load_dotenv(find_dotenv())
 
 
-#logging.getLogger("ebooklib").setLevel(logging.ERROR)
+# logging.getLogger("ebooklib").setLevel(logging.ERROR)
 
 console = Console()
 log = logging.getLogger("rich")
 
 VERSION = "0.1.0"
-
 
 
 # *****************************************************************************************
@@ -40,8 +40,13 @@ VERSION = "0.1.0"
 # If the db exists; if not, print error and exit.  Otherwise sqlite silently create a new file.
 def check_db(fn):
     if not os.path.isfile(fn):
-        console.log("Database file", fn, "does not exist.  Check the filename or run init to create a new database.")
+        console.log(
+            "Database file",
+            fn,
+            "does not exist.  Check the filename or run init to create a new database.",
+        )
         exit(1)
+
 
 def load(fn, config=False):
     if config:
@@ -51,28 +56,31 @@ def load(fn, config=False):
         fn = os.path.join(script_path, fn)
     # Check if the file exists
     if not os.path.isfile(fn):
-        raise Exception(f"File does not exist:{fn}" )
+        raise Exception(f"File does not exist:{fn}")
     # Load and return the file
     with open(fn, "r") as f:
         data = f.read()
     return data
 
-def hash(txt):
-    return str(hashlib.sha256(txt.encode('utf-8')).hexdigest())
 
-def execute(script,block):
+def hash(txt):
+    return str(hashlib.sha256(txt.encode("utf-8")).hexdigest())
+
+
+def execute(script, block):
     # Create a dictionary to use as the local variables
     loc = {}
     # Execute the code, using the block as the input
-    loc['block'] = block
+    loc["block"] = block
     exec(script, globals(), loc)
     # Return the result
-    return loc['result']
+    return loc["result"]
 
 
 # *****************************************************************************************
 #  Groups
 # *****************************************************************************************
+
 
 def create_group(c):
     sql = load("sql/create_group.sql", True)
@@ -81,14 +89,16 @@ def create_group(c):
     group_id = c.lastrowid
     return group_id
 
+
 def get_current_group():
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute("select id from current_group")
-    group_id = c.fetchone()[0]  
-    conn.close()      
+    group_id = c.fetchone()[0]
+    conn.close()
     return int(group_id)
+
 
 def fetch_groups():
     sql = load("sql/fetch_groups.sql", True)
@@ -100,6 +110,7 @@ def fetch_groups():
     conn.close()
     return results
 
+
 def update_current_group(c, group_id):
     c.execute("UPDATE current_group set id = ?", (group_id,))
     return group_id
@@ -109,11 +120,13 @@ def update_current_group(c, group_id):
 #  Blocks
 # *****************************************************************************************
 
+
 def create_block(c, group_id, block, tag, parent_id):
     sql = load("sql/create_block.sql", True)
     c.execute(sql, (group_id, block, tag, parent_id))
     block_id = c.lastrowid
     return block_id
+
 
 def fetch_blocks(tag="*", latest=True):
     # Replace the * with a pct, which is what sqlite3 requires for wildcards
@@ -131,6 +144,7 @@ def fetch_blocks(tag="*", latest=True):
     conn.close()
     return results
 
+
 def fetch_blocks_by_id(id):
     # Replace the * with a pct, which is what sqlite3 requires for wildcards
     sql = load("sql/fetch_block_by_id.sql", True)
@@ -143,21 +157,35 @@ def fetch_blocks_by_id(id):
     conn.close()
     return results
 
+
 # *****************************************************************************************
 #  Prompts
 # *****************************************************************************************
 
-def create_prompt_response(prompt_log_id, block_id, prompt_text, response, elapsed_time_in_seconds):
+
+def create_prompt_response(
+    prompt_log_id, block_id, prompt_text, response, elapsed_time_in_seconds
+):
     sql = load("sql/create_prompt_response.sql", True)
     conn = sqlite3.connect(args.db)
     c = conn.cursor()
     response_txt = str(response.choices[0].message.content)
-    c.execute(sql, (prompt_log_id, block_id, hash(prompt_text), response_txt, elapsed_time_in_seconds,))
+    c.execute(
+        sql,
+        (
+            prompt_log_id,
+            block_id,
+            hash(prompt_text),
+            response_txt,
+            elapsed_time_in_seconds,
+        ),
+    )
     # Unlike other group, this should alsways be committed directly
     conn.commit()
     conn.close()
     prompt_response_id = c.lastrowid
     return prompt_response_id
+
 
 def create_prompt_log(prompt_fn, prompt):
     sql = load("sql/create_prompt_log.sql", True)
@@ -170,6 +198,7 @@ def create_prompt_log(prompt_fn, prompt):
     prompt_log_id = c.lastrowid
     return prompt_log_id
 
+
 def response_already_exists(prompt_text):
     sql = "select * from prompt_responses where prompt_hash like ?"
     conn = sqlite3.connect(args.db)
@@ -178,6 +207,7 @@ def response_already_exists(prompt_text):
     result = c.fetchone()
     conn.close()
     return result is not None
+
 
 def fetch_prompts():
     sql = load("sql/fetch_prompts.sql.jinja", True)
@@ -203,6 +233,7 @@ def fetch_prompts():
 # *****************************************************************************************
 # Functions related to fetching a transcript
 # *****************************************************************************************
+
 
 def fetch_url(url):
     console.log("[bold]Fetching... [/]: [italic]" + url + "[/]")
@@ -274,7 +305,7 @@ def action_load_transcript():
             if t["metadata"]["depth"] > 1:
                 level = "##"
             md = f"{level} {t['title']}\n\n{transcript}"
-            create_block(c, group_id, md,  args.work,0)
+            create_block(c, group_id, md, args.work, 0)
         update_current_group(c, group_id)
         conn.commit()
     except Exception as e:
@@ -284,12 +315,10 @@ def action_load_transcript():
         conn.close()
 
 
-
-
-
 # *****************************************************************************************
-# Action groups 
+# Action groups
 # *****************************************************************************************
+
 
 # Initialize the database by reading in the schema and creating the database
 def action_init():
@@ -311,6 +340,7 @@ def action_init():
     conn.commit()
     conn.close()
 
+
 # Loads a file into the database
 def action_load():
     console.log("Loading file", args.fn)
@@ -328,13 +358,17 @@ def action_load():
             for item in book.get_items():
                 if item.get_type() == ebooklib.ITEM_DOCUMENT:
                     html = item.get_content().decode("utf-8")
-                    create_block(c, group_id, html,  item.get_name(),0)
+                    create_block(c, group_id, html, item.get_name(), 0)
                     idx += 1
             update_current_group(c, group_id)
             conn.commit()
         else:
-            txt = load(args.fn)
-            create_block(c, group_id, txt, args.fn,0)
+            files = glob.glob(args.fn)
+            idx = 0
+            for f in files:
+                txt = load(f)
+                create_block(c, group_id, txt, f, idx)
+                idx += 1
             update_current_group(c, group_id)
             conn.commit()
     except Exception as e:
@@ -359,13 +393,13 @@ def action_transform(script):
     group_id = create_group(c)
     try:
         for b in blocks:
-            console.log("Processing block", b['tag'])
-            result = execute(script, b['block'])
+            console.log("Processing block", b["tag"])
+            result = execute(script, b["block"])
             if type(result) is list:
                 for r in result:
-                    create_block(c, group_id, r, b['tag'], b['id'])
+                    create_block(c, group_id, r, b["tag"], b["id"])
             elif type(result) is str:
-                create_block(c, group_id, result, b['tag'], b['id'])
+                create_block(c, group_id, result, b["tag"], b["id"])
             else:
                 # Raise an error
                 raise Exception(f"Result is not a list or string: {type(result)}")
@@ -376,6 +410,7 @@ def action_transform(script):
         conn.rollback()
     finally:
         conn.close()
+
 
 def action_prompt(prompt_fn):
     openai.api_key = os.environ["OPENAI_API_KEY"]
@@ -389,12 +424,22 @@ def action_prompt(prompt_fn):
     prompt_log_id = create_prompt_log(prompt_fn, prompt)
     idx = 1
     for b in blocks:
-        prompt_text = template.render(block=b['block'])
+        prompt_text = template.render(block=b["block"])
         if response_already_exists(prompt_text):
-            console.log(f"({idx}/{len(blocks)}) Prompt already exists for", b['id'], b['tag'], b['block'][:40].replace("\n", " "))
+            console.log(
+                f"({idx}/{len(blocks)}) Prompt already exists for",
+                b["id"],
+                b["tag"],
+                b["block"][:40].replace("\n", " "),
+            )
             idx += 1
             continue
-        console.log(f"({idx}/{len(blocks)}) Prompting block", b['id'], b['tag'], b['block'][:40].replace("\n", " "))
+        console.log(
+            f"({idx}/{len(blocks)}) Prompting block",
+            b["id"],
+            b["tag"],
+            b["block"][:40].replace("\n", " "),
+        )
         start = time.time()
         response = openai.ChatCompletion.create(
             model=args.model,
@@ -405,8 +450,12 @@ def action_prompt(prompt_fn):
         idx += 1
         end = time.time()
         # Save the response to the database
-        create_prompt_response(prompt_log_id, b['id'], prompt_text, response, end - start)
-        console.log("Elapsed time",end-start," -> ", response.choices[0].message.content)
+        create_prompt_response(
+            prompt_log_id, b["id"], prompt_text, response, end - start
+        )
+        console.log(
+            "Elapsed time", end - start, " -> ", response.choices[0].message.content
+        )
 
 
 def action_blocks():
@@ -416,26 +465,29 @@ def action_blocks():
     else:
         blocks = fetch_blocks(args.tag)
     current_group = get_current_group()
-    table = Table(title=f"Blocks for group id {current_group}", header_style="bold magenta")
+    table = Table(
+        title=f"Blocks for group id {current_group}", header_style="bold magenta"
+    )
     table.add_column("block_id", justify="center", style="cyan")
     table.add_column("tag", justify="left")
     table.add_column("~tokens", justify="right")
     table.add_column("block", justify="left")
     total_tokens = 0
-    for idx,block in enumerate(blocks):
+    for idx, block in enumerate(blocks):
         # Strip and \n and replace with " " for block
-        tokens = len(block["block"].split(" "))
-        total_tokens += tokens
         b = str(block["block"]).replace("\n", " ")
+        tokens = len(b.split(" "))
+        total_tokens += tokens
         table.add_row(
             str(block["id"]),
             block["tag"],
-            '{:,}'.format(tokens),
-            b[:40],
+            "{:,}".format(tokens),
+            b[:40] + "...",
         )
     console.print(table)
     console.print(f"\n{len(blocks)} blocks with {'{:,}'.format(total_tokens)} tokens.")
     console.print(f"Current group id = {current_group}\n")
+
 
 def action_groups():
     current_group_id = get_current_group()
@@ -445,21 +497,18 @@ def action_groups():
     table.add_column("arguments", justify="left")
     table.add_column("blocks", justify="left")
     for op in results:
-        if op["id"] == current_group_id:   
+        if op["id"] == current_group_id:
             table.add_row(
                 f"[bold][red]{op['id']}",
                 f"[bold][red]{op['arguments']}",
-                f"[bold][red]{op['block_count']}"
+                f"[bold][red]{op['block_count']}",
             )
         else:
-            table.add_row(
-                str(op["id"]),
-                op["arguments"],
-                str(op["block_count"])
-            )
+            table.add_row(str(op["id"]), op["arguments"], str(op["block_count"]))
     console.print(table)
     console.print(f"\nCurrent group_id: {current_group_id}")
     console.print(f"{len(results)} group(s) in total\n")
+
 
 def action_prompts():
     prompts = fetch_prompts()
@@ -474,26 +523,26 @@ def action_prompts():
             str(op["prompt_response_id"]),
             str(op["block_id"]),
             op["search_field"],
-            op["block"].replace("\n"," ")[:50]
+            op["block"].replace("\n", " ")[:50],
         )
     console.print(table)
 
-    
+
 def action_dump_blocks():
     if args.block_id is not None:
         blocks = fetch_blocks_by_id(args.block_id)
     else:
         blocks = fetch_blocks(args.tag)
     # Pull out the block element into it's own list
-    out = [b['block'] for b in blocks]
+    out = [b["block"] for b in blocks]
     console.print("\n".join(out))
+
 
 def action_dump_prompts():
     prompts = fetch_prompts()
     # Pull out the block element into it's own list
-    out = [p['response'] for p in prompts]
+    out = [p["response"] for p in prompts]
     console.print("\n".join(out))
-
 
 
 # *****************************************************************************************
@@ -517,39 +566,50 @@ parser.add_argument(
         "prompt",
         "prompts",
         "set-group",
-        "version"
+        "version",
     ],
     help="The action to perform ",
 )
 
 
-parser.add_argument("--db", help="The database file", required=False, default="promptlab.db")
+parser.add_argument(
+    "--db", help="The database file", required=False, default="promptlab.db"
+)
 parser.add_argument("--fn", help="Filename", required=False, default="test.epub")
-parser.add_argument("--description", help="Description of the groups", required=False, default="")
+parser.add_argument(
+    "--description", help="Description of the groups", required=False, default=""
+)
 parser.add_argument("--tag", help="Tag to filter on", required=False, default="*")
-parser.add_argument("--msg", help="Message for the operation for later search", required=False, default="*")
+parser.add_argument(
+    "--msg",
+    help="Message for the operation for later search",
+    required=False,
+    default="*",
+)
 parser.add_argument("--script", help="Script to execute", required=False)
 parser.add_argument("--block_id", help="Block ID to use", required=False)
 parser.add_argument("--group_id", help="group ID to use", required=False)
 parser.add_argument("--prompt", help="Prompt to use", required=False)
 parser.add_argument("--model", help="Model to use", required=False, default="gpt-4")
-parser.add_argument("--work", help="Work to use", required=False, default="9781098115302")
+parser.add_argument(
+    "--work", help="Work to use", required=False, default="9781098115302"
+)
 
 args = parser.parse_args()
 
-if args.action == 'init':
+if args.action == "init":
     action_init()
     console.log("Initialized database")
     sys.exit(0)
 
-if args.action == 'load':
+if args.action == "load":
     check_db(args.db)
     if args.fn is None:
         console.log("You must provide a --fn argument for the file to read")
         exit(1)
     action_load()
 
-if args.action =='group':
+if args.action == "group":
     check_db(args.db)
     if args.fn is None:
         console.log("You must provide a --fn argument for the file to read")
@@ -559,27 +619,27 @@ if args.action =='group':
         sys.exit(1)
     action_transform(args.script)
 
-if args.action == 'blocks':
+if args.action == "blocks":
     check_db(args.db)
     action_blocks()
     sys.exit(0)
 
-if args.action == 'groups':
+if args.action == "groups":
     check_db(args.db)
     action_groups()
     sys.exit(0)
 
-if args.action == 'dump-blocks':
+if args.action == "dump-blocks":
     check_db(args.db)
     action_dump_blocks()
     sys.exit(0)
 
-if args.action == 'dump-prompts':
+if args.action == "dump-prompts":
     check_db(args.db)
     action_dump_prompts()
     sys.exit(0)
 
-if args.action == 'prompt':
+if args.action == "prompt":
     check_db(args.db)
     if args.prompt is None:
         console.log("You must provide a --prompt argument for the prompt")
@@ -587,7 +647,7 @@ if args.action == 'prompt':
     action_prompt(args.prompt)
     sys.exit(0)
 
-if args.action == 'set-group':
+if args.action == "set-group":
     check_db(args.db)
     if args.group_id is None:
         console.log("You must provide a --group_id argument for the group")
@@ -598,12 +658,12 @@ if args.action == 'set-group':
     conn.commit()
     conn.close()
 
-if args.action == 'prompts':
+if args.action == "prompts":
     check_db(args.db)
     action_prompts()
     sys.exit(0)
 
-if args.action == 'load-transcript':
+if args.action == "load-transcript":
     check_db(args.db)
     if args.work is None:
         console.log("You must provide a --work argument for the work to load")
@@ -611,12 +671,6 @@ if args.action == 'load-transcript':
     action_load_transcript()
     sys.exit(0)
 
-if args.action == 'version':
+if args.action == "version":
     console.log("Version", VERSION)
     sys.exit(0)
-    
-
-    
-
-
-

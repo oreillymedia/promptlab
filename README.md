@@ -271,8 +271,25 @@ First, be sure you're set up to run pyinstaller by reading [Build an executable 
 pyinstaller \
    --name=promptlab \
    --add-data="/Users/odewahn/Desktop/promptlab/sql/*:sql" \
-   --onefile \
    ../promptlab/main.py
+```
+
+# venv stuff I can never remember
+
+```
+ python -m venv .venv
+```
+
+To activate:
+
+```
+source .venv/bin/activate
+```
+
+To deactivate:
+
+```
+deactivate
 ```
 
 # ORM specific notes
