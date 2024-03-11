@@ -54,8 +54,6 @@ You can also load transcripts of a given work:
 python main.py load-transcript --work=9781098115302
 ```
 
-```
-
 ## Working with Groups
 
 Groups are sets of related blocks tied together by the original filename. For example, you might have an initial group of blocks representing 10 chapters in a book, a group that transforms those chapters into markdown, and a group that splits the chapters into smaller blocks.
@@ -113,10 +111,8 @@ Current group_id: 4
 To set the current group, use the `set-group` command:
 
 ```
-
 python main.py set-group --group_id=1
-
-````
+```
 
 ### Writing your own group scripts
 
@@ -127,7 +123,7 @@ def main(b):
     return b.upper()
 
 result =  main(block)
-````
+```
 
 Here's an example that will break the block into blocks of 5,000 characters each:
 
@@ -229,12 +225,13 @@ $ python main.py prompt --block_id=314 --prompt=prompts/learning-objective.jinja
 * After reading this text, the learner will be able to discuss the advantages and disadvantages of using a data cube in data warehouses.
 ```
 
-You can include an optional `--msg=<message>` option to provide a message that will be stored with the prompt. This field is both useful for providing context to other users of the database, as well as being something that you can use for searching for prompts later.
+You can include an optional `--msg=<message>` option to provide a message that will be stored with the prompt. This field is both useful for providing context to other users of the database, as well as being something that you can use for searching for prompts later. _NB: you must wrap the search criteria within the wildcard character \*_.
 
 You can list the content of prompts using the `prompts` command:
 
 ```
-$ python main.py prompts --tag=part03*
+$ python main.py prompts --tag=*part03*
+
 * After reading this text, the learner will be able to understand the complexity of integrating multiple different data systems into one
 coherent application architecture.
 * After reading this text, the learner will be able to recognize the importance of implementing mechanisms for moving data from one store
@@ -244,7 +241,7 @@ to another in a large application.
 You can search for all prompts with a message like this:
 
 ```
-python main.py prompts --msg="Generate Quiz*"
+python main.py prompts --msg="*Generate Quiz*"
 ```
 
 You can use output redirection to send the text to a file, load the file in as a new group, and then apply a new prompt to it. This enables you to chain prompts to build up more complex interactions. For example, you might have a new prompt that will summarize and condense all the individual learning objectives per section into a single learning objective for the chapter as a whole.
