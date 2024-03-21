@@ -6,5 +6,5 @@ requests
 bs4
 markdownify
 markdown
-openai
+openai==0.28
 rich

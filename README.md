@@ -260,33 +260,47 @@ You can use the `dump-prompts` command to write the prompts to standard output. 
 $ python main.py dump-prompts --tag=part03* > part03-learning-objectives.md
 ```
 
+You can also include an optional `--delimiter` to specifiy how to join the prompts together. For example, if your prompts are json dictionaries, you can join them with a "," like this:
+
+```
+python main.py dump-prompts --tag="*json-topics-with-roles-no-skill*" --delimiter=",\n"
+```
+
 # Building standalone executable
 
 First, be sure you're set up to run pyinstaller by reading [Build an executable with pyinstaller](http://www.gregreda.com/2023/05/18/notes-on-using-pyinstaller-poetry-and-pyenv/). This is another good [tutorial on pyinstaller](https://www.devdungeon.com/content/pyinstaller-tutorial).
 
 ```
+
 pyinstaller \
-   --name=promptlab \
-   --add-data="/Users/odewahn/Desktop/promptlab/sql/*:sql" \
-   ../promptlab/main.py
+ --name=promptlab \
+ --add-data="/Users/odewahn/Desktop/promptlab/sql/\*:sql" \
+ ../promptlab/main.py
+
 ```
 
 # venv stuff I can never remember
 
 ```
- python -m venv .venv
+
+python -m venv .venv
+
 ```
 
 To activate:
 
 ```
+
 source .venv/bin/activate
+
 ```
 
 To deactivate:
 
 ```
+
 deactivate
+
 ```
 
 # ORM specific notes
@@ -311,3 +325,7 @@ deactivate
 -- Demo video - https://drive.google.com/file/d/1hEdV7E3cxOrU2Kzw9bDQYPMF1CZuyFhf/view?usp=sharing
 
 -- text-based course brief - https://docs.google.com/document/d/1JOAj0UBv8PzE3nhNmRlOQMFsYerhQ-_hBWT_5Vn9JZw/edit
+
+```
+
+```

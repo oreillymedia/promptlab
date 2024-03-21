@@ -77,6 +77,12 @@ def execute(script, block):
     return loc["result"]
 
 
+def get_delimiter():
+    d = args.delimiter
+    d = d.replace(r"\n", "\n")
+    return d
+
+
 # *****************************************************************************************
 #  Groups
 # *****************************************************************************************
@@ -535,14 +541,14 @@ def action_dump_blocks():
         blocks = fetch_blocks(args.tag)
     # Pull out the block element into it's own list
     out = [b["block"] for b in blocks]
-    console.print("\n".join(out))
+    console.print(get_delimiter().join(out))
 
 
 def action_dump_prompts():
     prompts = fetch_prompts()
     # Pull out the block element into it's own list
     out = [p["response"] for p in prompts]
-    console.print("\n".join(out))
+    console.print(get_delimiter().join(out))
 
 
 # *****************************************************************************************
@@ -593,6 +599,12 @@ parser.add_argument("--prompt", help="Prompt to use", required=False)
 parser.add_argument("--model", help="Model to use", required=False, default="gpt-4")
 parser.add_argument(
     "--work", help="Work to use", required=False, default="9781098115302"
+)
+parser.add_argument(
+    "--delimiter",
+    help="Delimiter to use when dumping prompts",
+    required=False,
+    default="\n\n",
 )
 
 args = parser.parse_args()
