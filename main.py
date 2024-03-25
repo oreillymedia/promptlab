@@ -484,6 +484,7 @@ def action_blocks():
             "{:,}".format(tokens),
             b[:40] + "...",
         )
+        console.print(block["tag"])
     console.print(table)
     console.print(f"\n{len(blocks)} blocks with {'{:,}'.format(total_tokens)} tokens.")
     console.print(f"Current group id = {current_group}\n")
@@ -537,6 +538,14 @@ def action_dump_blocks():
     out = [b["block"] for b in blocks]
     console.print("\n".join(out))
 
+def action_dump_block_tag():
+    if args.block_id is not None:
+        blocks = fetch_blocks_by_id(args.block_id)
+    else:
+        blocks = fetch_blocks(args.tag)
+    # Pull out the block element into it's own list
+    out = [b["tag"] for b in blocks]
+    console.print("\n".join(out))
 
 def action_dump_prompts():
     prompts = fetch_prompts()
@@ -559,6 +568,7 @@ parser.add_argument(
         "load",
         "load-transcript",
         "dump-blocks",
+        "dump-block-tag",
         "dump-prompts",
         "group",
         "groups",
@@ -632,6 +642,11 @@ if args.action == "groups":
 if args.action == "dump-blocks":
     check_db(args.db)
     action_dump_blocks()
+    sys.exit(0)
+
+if args.action == "dump-block-tag":
+    check_db(args.db)
+    action_dump_block_tag()
     sys.exit(0)
 
 if args.action == "dump-prompts":
