@@ -48,7 +48,6 @@ for file in "${files[@]}"; do
     filename_without_extension=$(basename "$file" .txt)
     echo "$filename_without_extension"
     # get quizzing for all segments
-    python3 main.py prompt --tag="*$filename_without_extension*" --msg="$filename_without_extension quiz" --prompt=prompts/generate-questions-plaintext-1.jinja
     python3 main.py prompt --tag="*$filename_without_extension*" --msg="$filename_without_extension quiz" --prompt=prompts/generate-questions-plaintext-2.jinja
 
     python3 main.py dump-prompts --tag="*$filename_without_extension quiz*" >> "$course_name"/"$filename_without_extension".txt

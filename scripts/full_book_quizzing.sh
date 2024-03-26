@@ -67,7 +67,6 @@ for file in "${files[@]}"; do
     first_four="${filename_without_extension:0:4}"
     echo "$first_four"
     # get quizzing for all segments
-    python3 main.py prompt --tag="*$first_four*" --msg="$first_four quiz" --prompt=prompts/generate-questions-plaintext-1.jinja
     python3 main.py prompt --tag="*$first_four*" --msg="$first_four quiz" --prompt=prompts/generate-questions-plaintext-2.jinja
 
     python3 main.py dump-prompts --tag="*$first_four quiz*" >> "$book_filename_without_extension"/output_files/$first_four\_quiz".txt
