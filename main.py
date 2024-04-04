@@ -21,6 +21,7 @@ import hashlib
 import logging
 import requests
 import glob
+from slugify import slugify
 
 
 load_dotenv(find_dotenv())
@@ -304,14 +305,16 @@ def action_load_transcript():
         c = conn.cursor()
         c.execute("BEGIN")
         group_id = create_group(c)
-        for t in flattened_toc:
+        for idx, t in enumerate(flattened_toc):
             url = fetch_transcript_url(args.work, t["metadata"]["full_path"])
             transcript = fetch_transcript_by_url(url)
             level = "#"
             if t["metadata"]["depth"] > 1:
                 level = "##"
             md = f"{level} {t['title']}\n\n{transcript}"
-            create_block(c, group_id, md, args.work, 0)
+            # format idx to 3 digits
+            tag = args.work + "-" + str(idx + 1).zfill(3) + "-" + slugify(t["title"])
+            create_block(c, group_id, md, tag, 0)
         update_current_group(c, group_id)
         conn.commit()
     except Exception as e:

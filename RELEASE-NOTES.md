@@ -1,3 +1,19 @@
+# v 0.1.1
+
+Include the segment name in the tag when pulling down a transcript. When doing this, the tag will include the segment name in the tag when pulling down a transcript. The tag now looks like this "9781098115302-001-introduction".
+
+```
+│    67    │ 9781098115302-000-introduction                                         │     224 │ # Introduction  Hi. │    68    │ 9781098115302-001-product-development-loop                             │     720 │ # Product Development │    69    │ 9781098115302-002-product-development-loop-introduction                │     721 │ ## Product
+```
+
+So, you will need to use a whildcard you're searching for all the works in a transcript.
+
+NB: This installs a new requirement, so you will need to run:
+
+```
+pip install -r requirements.txt
+```
+
 # v 0.1.0
 
 ## `dump` action renamed to `dump-blocks`
