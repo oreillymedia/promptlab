@@ -32,7 +32,7 @@ load_dotenv(find_dotenv())
 console = Console()
 log = logging.getLogger("rich")
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 
 # *****************************************************************************************
