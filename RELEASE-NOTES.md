@@ -1,3 +1,10 @@
+# v 0.2.0
+
+- Move transformation scripts into codebase as funtcions
+- redo argument parser
+- be able to load blocks from prompts (i.e., prompts table to blocks table)
+- single file binary with pyinstaller
+
 # v 0.1.1
 
 Include the segment name in the tag when pulling down a transcript. When doing this, the tag will include the segment name in the tag when pulling down a transcript. The tag now looks like this "9781098115302-001-introduction".

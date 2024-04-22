@@ -11,8 +11,6 @@ import time
 import shutil
 import os
 from jinja2 import Template
-from markdownify import markdownify as md
-import markdown
 import re
 import sys
 import openai
@@ -22,7 +20,8 @@ import logging
 import requests
 import glob
 from slugify import slugify
-
+from transformations import *
+import os
 
 load_dotenv(find_dotenv())
 
@@ -32,7 +31,7 @@ load_dotenv(find_dotenv())
 console = Console()
 log = logging.getLogger("rich")
 
-VERSION = "0.1.1"
+VERSION = "0.2.0"
 
 
 # *****************************************************************************************
@@ -66,16 +65,6 @@ def load(fn, config=False):
 
 def hash(txt):
     return str(hashlib.sha256(txt.encode("utf-8")).hexdigest())
-
-
-def execute(script, block):
-    # Create a dictionary to use as the local variables
-    loc = {}
-    # Execute the code, using the block as the input
-    loc["block"] = block
-    exec(script, globals(), loc)
-    # Return the result
-    return loc["result"]
 
 
 def get_delimiter():
@@ -344,7 +333,7 @@ def action_init():
     # Initialize the new database
     conn = sqlite3.connect(args.db)
     c = conn.cursor()
-    sql = load("sql/schema.sql")
+    sql = load("sql/schema.sql", True)
     c.executescript(sql)
     conn.commit()
     conn.close()
@@ -387,9 +376,8 @@ def action_load():
         conn.close()
 
 
-def action_transform(script):
-    console.log("Transforming file", args.fn)
-    script = load(script)
+def action_transform(transformation):
+    # Fetch the block or blocks to use
     if args.block_id is not None:
         blocks = fetch_blocks_by_id(args.block_id)
     else:
@@ -403,7 +391,26 @@ def action_transform(script):
     try:
         for b in blocks:
             console.log("Processing block", b["tag"])
-            result = execute(script, b["block"])
+            # Apply the transformation to the block
+            match transformation:
+                case "token-split":
+                    result = transformation_token_split(b["block"])
+                case "clean-epub":
+                    result = transformation_clean_epub(b["block"])
+                case "html-h1-split":
+                    result = transformation_html_heading_split(b["block"], ["h1"])
+                case "html-h2-split":
+                    result = transformation_html_heading_split(b["block"], ["h1", "h2"])
+                case "html2md":
+                    result = transformation_html2md(b["block"])
+                case "html2txt":
+                    result = transformation_html2txt(b["block"])
+                case "new-line-split":
+                    result = transformation_newline_split(b["block"])
+                case _:
+                    console.log("Unknown transformation", args.transformation)
+                    sys.exit(1)
+            # If the result is a list, then create a block for each element
             if type(result) is list:
                 for r in result:
                     create_block(c, group_id, r, b["tag"], b["id"])
@@ -595,9 +602,15 @@ parser.add_argument(
     required=False,
     default="*",
 )
-parser.add_argument("--script", help="Script to execute", required=False)
+
+
+parser.add_argument(
+    "--transformation",
+    help="Transformation to use: token-split | clean-epub | html-h1-split | html-h2-split | html2md | html2txt | new-line-split",
+    required=False,
+)
 parser.add_argument("--block_id", help="Block ID to use", required=False)
-parser.add_argument("--group_id", help="group ID to use", required=False)
+parser.add_argument("--group_id", help="Group ID to use", required=False)
 parser.add_argument("--prompt", help="Prompt to use", required=False)
 parser.add_argument("--model", help="Model to use", required=False, default="gpt-4")
 parser.add_argument(
@@ -629,10 +642,10 @@ if args.action == "group":
     if args.fn is None:
         console.log("You must provide a --fn argument for the file to read")
         sys.exit(1)
-    if args.script is None:
-        console.log("You must provide a --script argument for the script to execute")
+    if args.transformation is None:
+        console.log("You must provide a --transformation argument to use")
         sys.exit(1)
-    action_transform(args.script)
+    action_transform(args.transformation)
 
 if args.action == "blocks":
     check_db(args.db)

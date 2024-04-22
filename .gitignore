@@ -5,3 +5,5 @@
 *.html
 *.pdf
 .venv
+dist
+build

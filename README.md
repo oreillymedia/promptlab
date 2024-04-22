@@ -270,12 +270,14 @@ python main.py dump-prompts --tag="*json-topics-with-roles-no-skill*" --delimite
 
 First, be sure you're set up to run pyinstaller by reading [Build an executable with pyinstaller](http://www.gregreda.com/2023/05/18/notes-on-using-pyinstaller-poetry-and-pyenv/). This is another good [tutorial on pyinstaller](https://www.devdungeon.com/content/pyinstaller-tutorial).
 
+From the root directory, run the following command:
+
 ```
 
-pyinstaller \
+pyinstaller -F \
  --name=promptlab \
- --add-data="/Users/odewahn/Desktop/promptlab/sql/\*:sql" \
- ../promptlab/main.py
+ --add-data="sql:sql" \
+ main.py
 
 ```
 
