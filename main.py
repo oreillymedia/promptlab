@@ -576,9 +576,9 @@ def action_dump_prompts():
 def action_set_openai_key():
     home = str(Path.home())
     # get user input for openai key
-
     openai_key = input("Enter your OpenAI API key: ")
     # write the key to the .promptlab file
+    console.log(f"Missing openai credentials in file {home}/{ENV_FILENAME}.")
     with open(home + "/" + ENV_FILENAME, "w") as f:
         f.write(f"OPENAI_API_KEY={openai_key}")
     console.log(f"API key set successfully and saved in {home}/{ENV_FILENAME}")
