@@ -22,8 +22,10 @@ import glob
 from slugify import slugify
 from transformations import *
 import os
+from pathlib import Path
 
-load_dotenv(find_dotenv())
+
+# load_dotenv(find_dotenv())
 
 
 # logging.getLogger("ebooklib").setLevel(logging.ERROR)
@@ -32,6 +34,8 @@ console = Console()
 log = logging.getLogger("rich")
 
 VERSION = "0.2.0"
+
+ENV_FILENAME = ".promptlab"
 
 
 # *****************************************************************************************
@@ -46,6 +50,14 @@ def check_db(fn):
             "does not exist.  Check the filename or run init to create a new database.",
         )
         exit(1)
+
+
+# Check if the .promptlab file exists in the home directory
+def check_env():
+    home = str(Path.home())
+    if not os.path.isfile(home + "/" + ENV_FILENAME):
+        return False
+    return True
 
 
 def load(fn, config=False):
@@ -561,6 +573,17 @@ def action_dump_prompts():
     console.print(get_delimiter().join(out))
 
 
+def action_set_openai_key():
+    home = str(Path.home())
+    # get user input for openai key
+
+    openai_key = input("Enter your OpenAI API key: ")
+    # write the key to the .promptlab file
+    with open(home + "/" + ENV_FILENAME, "w") as f:
+        f.write(f"OPENAI_API_KEY={openai_key}")
+    console.log(f"API key set successfully and saved in {home}/{ENV_FILENAME}")
+
+
 # *****************************************************************************************
 # Define commandline flags, arguments, and the functions that love them
 # *****************************************************************************************
@@ -583,6 +606,7 @@ parser.add_argument(
         "prompts",
         "set-group",
         "version",
+        "set-openai-key",
     ],
     help="The action to perform ",
 )
@@ -672,6 +696,8 @@ if args.action == "prompt":
     if args.prompt is None:
         console.log("You must provide a --prompt argument for the prompt")
         sys.exit(1)
+    if check_env() is False:
+        action_set_openai_key()
     action_prompt(args.prompt)
     sys.exit(0)
 
@@ -701,4 +727,8 @@ if args.action == "load-transcript":
 
 if args.action == "version":
     console.log("Version", VERSION)
+    sys.exit(0)
+
+if args.action == "set-openai-key":
+    action_set_openai_key()
     sys.exit(0)
