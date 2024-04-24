@@ -23,12 +23,8 @@ from slugify import slugify
 from transformations import *
 import os
 from pathlib import Path
+from coolname import generate_slug
 
-
-# load_dotenv(find_dotenv())
-
-
-# logging.getLogger("ebooklib").setLevel(logging.ERROR)
 
 console = Console()
 log = logging.getLogger("rich")
@@ -53,14 +49,16 @@ def check_db(fn):
 
 
 # Check if the .promptlab file exists in the home directory
-def check_env():
+def load_env():
     home = str(Path.home())
     if not os.path.isfile(home + "/" + ENV_FILENAME):
         return False
+    load_dotenv(home + "/" + ENV_FILENAME)
+    console.log(f"Loaded OpenAI API key from {home}/{ENV_FILENAME}")
     return True
 
 
-def load(fn, config=False):
+def load_file(fn, config=False):
     if config:
         # find filepath for where the script is actually running
         script_path = os.path.dirname(os.path.realpath(__file__))
@@ -73,6 +71,14 @@ def load(fn, config=False):
     with open(fn, "r") as f:
         data = f.read()
     return data
+
+
+def load_system_file(fn):
+    return load_file(fn, True)
+
+
+def load_user_file(fn):
+    return load_file(fn, False)
 
 
 def hash(txt):
@@ -91,9 +97,10 @@ def get_delimiter():
 
 
 def create_group(c):
-    sql = load("sql/create_group.sql", True)
+    sql = load_system_file("sql/create_group.sql")
     arguments = " ".join(sys.argv)
-    c.execute(sql, (arguments,))
+    tag = args.tag if args.tag is not None else generate_slug(3)
+    c.execute(sql, (arguments, tag))
     group_id = c.lastrowid
     return group_id
 
@@ -102,14 +109,14 @@ def get_current_group():
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    c.execute("select id from current_group")
+    c.execute("select * from current_group")
     group_id = c.fetchone()[0]
     conn.close()
     return int(group_id)
 
 
 def fetch_groups():
-    sql = load("sql/fetch_groups.sql", True)
+    sql = load_system_file("sql/fetch_groups.sql")
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
@@ -130,19 +137,20 @@ def update_current_group(c, group_id):
 
 
 def create_block(c, group_id, block, tag, parent_id):
-    sql = load("sql/create_block.sql", True)
+    sql = load_system_file("sql/create_block.sql")
     c.execute(sql, (group_id, block, tag, parent_id))
     block_id = c.lastrowid
     return block_id
 
 
-def fetch_blocks(tag="*", latest=True):
+def fetch_blocks(tag, latest=True):
     # Replace the * with a pct, which is what sqlite3 requires for wildcards
+    tag = tag if tag is not None else "*"
     tag = tag.replace("*", "%")
     if latest:
-        sql = load("sql/fetch_latest_blocks.sql", True)
+        sql = load_system_file("sql/fetch_latest_blocks.sql")
     else:
-        sql = load("sql/fetch_blocks.sql", True)
+        sql = load_system_file("sql/fetch_blocks.sql")
     # Grab the data
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
@@ -155,7 +163,7 @@ def fetch_blocks(tag="*", latest=True):
 
 def fetch_blocks_by_id(id):
     # Replace the * with a pct, which is what sqlite3 requires for wildcards
-    sql = load("sql/fetch_block_by_id.sql", True)
+    sql = load_system_file("sql/fetch_block_by_id.sql")
     # Grab the data
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
@@ -174,7 +182,7 @@ def fetch_blocks_by_id(id):
 def create_prompt_response(
     prompt_log_id, block_id, prompt_text, response, elapsed_time_in_seconds
 ):
-    sql = load("sql/create_prompt_response.sql", True)
+    sql = load_system_file("sql/create_prompt_response.sql")
     conn = sqlite3.connect(args.db)
     c = conn.cursor()
     response_txt = str(response.choices[0].message.content)
@@ -196,7 +204,7 @@ def create_prompt_response(
 
 
 def create_prompt_log(prompt_fn, prompt):
-    sql = load("sql/create_prompt_log.sql", True)
+    sql = load_system_file("sql/create_prompt_log.sql")
     conn = sqlite3.connect(args.db)
     c = conn.cursor()
     arguments = " ".join(sys.argv)
@@ -218,7 +226,7 @@ def response_already_exists(prompt_text):
 
 
 def fetch_prompts():
-    sql = load("sql/fetch_prompts.sql.jinja", True)
+    sql = load_system_file("sql/fetch_prompts.sql.jinja")
     template = Template(sql)
     where_clause = ""
     tuple = ()
@@ -345,7 +353,7 @@ def action_init():
     # Initialize the new database
     conn = sqlite3.connect(args.db)
     c = conn.cursor()
-    sql = load("sql/schema.sql", True)
+    sql = load_system_file("sql/schema.sql")
     c.executescript(sql)
     conn.commit()
     conn.close()
@@ -376,7 +384,7 @@ def action_load():
             files = glob.glob(args.fn)
             idx = 0
             for f in files:
-                txt = load(f)
+                txt = load_user_file(f)
                 create_block(c, group_id, txt, f, idx)
                 idx += 1
             update_current_group(c, group_id)
@@ -442,7 +450,7 @@ def action_transform(transformation):
 
 def action_prompt(prompt_fn):
     openai.api_key = os.environ["OPENAI_API_KEY"]
-    prompt = load(prompt_fn)
+    prompt = load_user_file(prompt_fn)
     template = Template(prompt)
     if args.block_id is not None:
         blocks = fetch_blocks_by_id(args.block_id)
@@ -619,7 +627,7 @@ parser.add_argument("--fn", help="Filename", required=False, default="test.epub"
 parser.add_argument(
     "--description", help="Description of the groups", required=False, default=""
 )
-parser.add_argument("--tag", help="Tag to filter on", required=False, default="*")
+parser.add_argument("--tag", help="Tag to filter on", required=False)
 parser.add_argument(
     "--msg",
     help="Message for the operation for later search",
@@ -696,8 +704,9 @@ if args.action == "prompt":
     if args.prompt is None:
         console.log("You must provide a --prompt argument for the prompt")
         sys.exit(1)
-    if check_env() is False:
+    if load_env() is False:
         action_set_openai_key()
+        load_env()
     action_prompt(args.prompt)
     sys.exit(0)
 

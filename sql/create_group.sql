@@ -1,4 +1,4 @@
 INSERT INTO groups 
-   (arguments) 
+   (arguments, tag) 
 VALUES 
-   (?)
+   (?,?)

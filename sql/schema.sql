@@ -1,6 +1,7 @@
 create table if not exists groups (
     id integer primary key autoincrement,
     arguments text,
+    tag text,
     created_at datetime DEFAULT CURRENT_TIMESTAMP
 );
 

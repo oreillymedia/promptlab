@@ -1,9 +1,9 @@
 # v 0.2.0
 
-- Move transformation scripts into codebase as funtcions
+- [x] Move transformation scripts into codebase as functions
+- [x] single file binary with pyinstaller
 - redo argument parser
 - be able to load blocks from prompts (i.e., prompts table to blocks table)
-- single file binary with pyinstaller
 
 # v 0.1.1
 
