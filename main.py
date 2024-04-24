@@ -24,9 +24,11 @@ from transformations import *
 import os
 from pathlib import Path
 from coolname import generate_slug
+from faker import Faker
 
 
 console = Console()
+fake = Faker()
 log = logging.getLogger("rich")
 
 VERSION = "0.2.0"
@@ -180,12 +182,11 @@ def fetch_blocks_by_id(id):
 
 
 def create_prompt_response(
-    prompt_log_id, block_id, prompt_text, response, elapsed_time_in_seconds
+    prompt_log_id, block_id, prompt_text, response_txt, elapsed_time_in_seconds
 ):
     sql = load_system_file("sql/create_prompt_response.sql")
     conn = sqlite3.connect(args.db)
     c = conn.cursor()
-    response_txt = str(response.choices[0].message.content)
     c.execute(
         sql,
         (
@@ -477,20 +478,25 @@ def action_prompt(prompt_fn):
             b["block"][:40].replace("\n", " "),
         )
         start = time.time()
-        response = openai.ChatCompletion.create(
-            model=args.model,
-            messages=[{"role": "user", "content": prompt_text}],
-            temperature=0.1,
-            max_tokens=1000,
-        )
+        response = "TBD"
+        if args.fake:
+            response_txt = fake.text(500)
+        else:
+            response = openai.ChatCompletion.create(
+                model=args.model,
+                messages=[{"role": "user", "content": prompt_text}],
+                temperature=0.1,
+                max_tokens=1000,
+            )
+            response_txt = str(response.choices[0].message.content)
         idx += 1
         end = time.time()
         # Save the response to the database
         create_prompt_response(
-            prompt_log_id, b["id"], prompt_text, response, end - start
+            prompt_log_id, b["id"], prompt_text, response_txt, end - start
         )
         console.log(
-            "Elapsed time", end - start, " -> ", response.choices[0].message.content
+            "Elapsed time", end - start, " -> ", response_txt[:40].replace("\n", " ")
         )
 
 
@@ -628,6 +634,7 @@ parser.add_argument(
     "--description", help="Description of the groups", required=False, default=""
 )
 parser.add_argument("--tag", help="Tag to filter on", required=False)
+
 parser.add_argument(
     "--msg",
     help="Message for the operation for later search",
@@ -641,6 +648,7 @@ parser.add_argument(
     help="Transformation to use: token-split | clean-epub | html-h1-split | html-h2-split | html2md | html2txt | new-line-split",
     required=False,
 )
+
 parser.add_argument("--block_id", help="Block ID to use", required=False)
 parser.add_argument("--group_id", help="Group ID to use", required=False)
 parser.add_argument("--prompt", help="Prompt to use", required=False)
@@ -653,6 +661,14 @@ parser.add_argument(
     help="Delimiter to use when dumping prompts",
     required=False,
     default="\n\n",
+)
+
+parser.add_argument(
+    "--fake",
+    help="Generate fake prompt response data (mostly for testing)",
+    required=False,
+    default=False,
+    action=argparse.BooleanOptionalAction,
 )
 
 args = parser.parse_args()

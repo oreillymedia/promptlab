@@ -10,3 +10,4 @@ openai==0.28
 rich
 python-slugify
 coolname
+Faker
