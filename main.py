@@ -134,23 +134,17 @@ def create_group(c):
 
 
 def get_current_group():
-    conn = sqlite3.connect(args.db)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute("select * from current_group")
-    group_id = c.fetchone()[0]
-    conn.close()
+    headers, results = fetch_from_db("select * from current_group", ())
+    try:
+        group_id = results[0]["id"]
+    except:
+        group_id = 0
     return int(group_id)
 
 
 def fetch_groups():
     sql = load_system_file("sql/fetch_groups.sql")
-    conn = sqlite3.connect(args.db)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute(sql)
-    results = c.fetchall()
-    conn.close()
+    headers, results = fetch_from_db(sql, ())
     return results
 
 
@@ -173,32 +167,19 @@ def create_block(c, group_id, block, tag, parent_id):
 
 def fetch_blocks(tag, latest=True):
     # Replace the * with a pct, which is what sqlite3 requires for wildcards
-    tag = tag if tag is not None else "*"
-    tag = tag.replace("*", "%")
+    tag = convert_wildcard(tag) if tag is not None else "%"
     if latest:
         sql = load_system_file("sql/fetch_latest_blocks.sql")
     else:
         sql = load_system_file("sql/fetch_blocks.sql")
-    # Grab the data
-    conn = sqlite3.connect(args.db)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute(sql, (tag,))
-    results = c.fetchall()
-    conn.close()
+    headers, results = fetch_from_db(sql, (tag,))
     return results
 
 
 def fetch_blocks_by_id(id):
     # Replace the * with a pct, which is what sqlite3 requires for wildcards
     sql = load_system_file("sql/fetch_block_by_id.sql")
-    # Grab the data
-    conn = sqlite3.connect(args.db)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute(sql, (id,))
-    results = c.fetchall()
-    conn.close()
+    headers, results = fetch_from_db(sql, (id,))
     return results
 
 
@@ -244,13 +225,10 @@ def create_prompt_log(prompt_fn, prompt):
 
 
 def response_already_exists(prompt_text):
-    sql = "select * from prompt_responses where prompt_hash like ?"
-    conn = sqlite3.connect(args.db)
-    c = conn.cursor()
-    c.execute(sql, (hash(prompt_text),))
-    result = c.fetchone()
-    conn.close()
-    return result is not None
+    headers, result = fetch_from_db(
+        "select * from prompt_responses where prompt_hash like ?", (hash(prompt_text),)
+    )
+    return len(result) > 0
 
 
 def fetch_prompts():
@@ -265,12 +243,7 @@ def fetch_prompts():
         where_clause = "search_field like ?"
         tuple = (args.tag.replace("*", "%"),)
     sql = template.render(where_clause=where_clause)
-    conn = sqlite3.connect(args.db)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute(sql, tuple)
-    results = c.fetchall()
-    conn.close()
+    headers, results = fetch_from_db(sql, tuple)
     return results
 
 
