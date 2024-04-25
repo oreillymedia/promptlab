@@ -93,6 +93,32 @@ def get_delimiter():
     return d
 
 
+# Convert a * wildcard to a % for sqlite3
+def convert_wildcard(s):
+    return s.replace("*", "%")
+
+
+def fetch_from_db(sql, tuple):
+    conn = sqlite3.connect(args.db)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute(sql, tuple)
+    results = c.fetchall()
+    # get column names and store in a list
+    column_names = [description[0] for description in c.description]
+    conn.close()
+    return column_names, results
+
+
+def print_results(title, column_names, results):
+    table = Table(title=title, header_style="bold magenta")
+    for cn in column_names:
+        table.add_column(cn, justify="center")
+    for row in results:
+        table.add_row(*[str(row[cn]) for cn in column_names])
+    console.print(table)
+
+
 # *****************************************************************************************
 #  Groups
 # *****************************************************************************************
@@ -602,6 +628,14 @@ def action_set_openai_key():
     console.log(f"API key set successfully and saved in {home}/{ENV_FILENAME}")
 
 
+def action_prompt_log(prompt_tag):
+    sql = load_system_file("sql/fetch_prompt_log.sql")
+    tag = convert_wildcard(prompt_tag) if prompt_tag is not None else "%"
+    console.log("Fetching prompt logs for tag", tag)
+    columns, results = fetch_from_db(sql, (tag,))
+    print_results("Prompt Logs", columns, results)
+
+
 # *****************************************************************************************
 # Define commandline flags, arguments, and the functions that love them
 # *****************************************************************************************
@@ -622,6 +656,7 @@ parser.add_argument(
         "blocks",
         "prompt",
         "prompts",
+        "prompt-log",
         "set-group",
         "version",
         "set-openai-key",
@@ -747,6 +782,11 @@ if args.action == "set-group":
 if args.action == "prompts":
     check_db(args.db)
     action_prompts()
+    sys.exit(0)
+
+if args.action == "prompt-log":
+    check_db(args.db)
+    action_prompt_log(args.prompt_tag)
     sys.exit(0)
 
 if args.action == "load-transcript":
