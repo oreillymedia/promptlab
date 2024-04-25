@@ -101,7 +101,7 @@ def get_delimiter():
 def create_group(c):
     sql = load_system_file("sql/create_group.sql")
     arguments = " ".join(sys.argv)
-    tag = args.tag if args.tag is not None else generate_slug(3)
+    tag = args.group_tag if args.group_tag is not None else generate_slug(3)
     c.execute(sql, (arguments, tag))
     group_id = c.lastrowid
     return group_id
@@ -209,11 +209,12 @@ def create_prompt_log(prompt_fn, prompt):
     conn = sqlite3.connect(args.db)
     c = conn.cursor()
     arguments = " ".join(sys.argv)
-    c.execute(sql, (prompt_fn, prompt, arguments))
+    tag = args.prompt_tag if args.prompt_tag is not None else generate_slug(3)
+    c.execute(sql, (prompt_fn, prompt, arguments, tag))
     conn.commit()
     conn.close()
     prompt_log_id = c.lastrowid
-    return prompt_log_id
+    return prompt_log_id, tag
 
 
 def response_already_exists(prompt_text):
@@ -458,7 +459,7 @@ def action_prompt(prompt_fn):
     else:
         blocks = fetch_blocks(args.tag)
     # Apply the template to each block
-    prompt_log_id = create_prompt_log(prompt_fn, prompt)
+    prompt_log_id, prompt_tag = create_prompt_log(prompt_fn, prompt)
     idx = 1
     for b in blocks:
         prompt_text = template.render(block=b["block"])
@@ -498,6 +499,9 @@ def action_prompt(prompt_fn):
         console.log(
             "Elapsed time", end - start, " -> ", response_txt[:40].replace("\n", " ")
         )
+    console.log(
+        f"\nPrompt response saved with id {prompt_log_id} and prompt_tag {prompt_tag}"
+    )
 
 
 def action_blocks():
@@ -629,10 +633,12 @@ parser.add_argument(
 parser.add_argument(
     "--db", help="The database file", required=False, default="promptlab.db"
 )
-parser.add_argument("--fn", help="Filename", required=False, default="test.epub")
+parser.add_argument("--fn", help="Filename", required=False)
 parser.add_argument(
     "--description", help="Description of the groups", required=False, default=""
 )
+parser.add_argument("--prompt_tag", help="Tag to filter on", required=False)
+parser.add_argument("--group_tag", help="Tag to filter on", required=False)
 parser.add_argument("--tag", help="Tag to filter on", required=False)
 
 parser.add_argument(
@@ -717,13 +723,14 @@ if args.action == "dump-prompts":
 
 if args.action == "prompt":
     check_db(args.db)
-    if args.prompt is None:
-        console.log("You must provide a --prompt argument for the prompt")
+    console.log(args.fn)
+    if args.fn is None:
+        console.log("You must provide a --fn argument for the prompt")
         sys.exit(1)
     if load_env() is False:
         action_set_openai_key()
         load_env()
-    action_prompt(args.prompt)
+    action_prompt(args.fn)
     sys.exit(0)
 
 if args.action == "set-group":

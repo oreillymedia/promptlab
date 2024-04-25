@@ -37,6 +37,7 @@ create table if not exists prompt_log (
     prompt_fn text,
     prompt text,
     arguments text,
+    tag text,
     created_at datetime DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -1,9 +1,11 @@
 INSERT INTO prompt_log (
     prompt_fn,
     prompt,
-    arguments
+    arguments,
+    tag
 ) VALUES (
     ?, 
+    ?,
     ?,
     ?
 )
