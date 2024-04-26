@@ -24,7 +24,7 @@ from transformations import *
 import os
 from pathlib import Path
 from faker import Faker
-
+import yaml
 
 console = Console()
 fake = Faker()
@@ -141,6 +141,18 @@ def print_results(title, column_names, results):
     for row in results:
         table.add_row(*[str(row[cn]) for cn in column_names])
     console.print(table)
+
+
+# *****************************************************************************************
+#  Metadata
+# *****************************************************************************************
+
+
+def read_metadata(fn):
+    txt = load_user_file(fn)
+    # parse the yml file into a dictionary
+    metadata = yaml.safe_load(txt)
+    return metadata
 
 
 # *****************************************************************************************
@@ -501,6 +513,9 @@ def action_transform(transformation):
 def action_prompt(prompt_fn):
     openai.api_key = os.environ["OPENAI_API_KEY"]
     prompt = load_user_file(prompt_fn)
+    metadata = {}
+    if args.globals is not None:
+        metadata = read_metadata(args.globals)
     template = Template(prompt)
     if args.block_id is not None:
         blocks = fetch_blocks_by_id(args.block_id)
@@ -510,7 +525,8 @@ def action_prompt(prompt_fn):
     prompt_log_id, prompt_tag = create_prompt_log(prompt_fn, prompt)
     idx = 1
     for b in blocks:
-        prompt_text = template.render(block=b["block"])
+        prompt_text = template.render(block=b["block"], **metadata)
+        print(prompt_text)
         if response_already_exists(prompt_text):
             console.log(
                 f"({idx}/{len(blocks)}) Prompt already exists for",
@@ -610,6 +626,12 @@ def action_prompts():
     sql = load_system_file("sql/fetch_prompts_action.sql")
     tag = convert_wildcard(args.prompt_tag) if args.prompt_tag is not None else "%"
     columns, results = fetch_from_db(sql, (tag,))
+    results = transform_by_key(
+        results,
+        {
+            "response": lambda x: x[:40].replace("\n", " "),
+        },
+    )
     print_results("Prompts", columns, results)
 
 
@@ -655,6 +677,7 @@ parser.add_argument(
         "set-group",
         "version",
         "set-openai-key",
+        "metadata",
     ],
     help="The action to perform ",
 )
@@ -670,6 +693,10 @@ parser.add_argument(
 parser.add_argument("--prompt_tag", help="Tag to filter on", required=False)
 parser.add_argument("--group_tag", help="Tag to filter on", required=False)
 parser.add_argument("--tag", help="Tag to filter on", required=False)
+
+parser.add_argument(
+    "--globals", help="Name of the file with global metadata", required=False
+)
 
 parser.add_argument(
     "--msg",
@@ -806,4 +833,12 @@ if args.action == "version":
 
 if args.action == "set-openai-key":
     action_set_openai_key()
+    sys.exit(0)
+
+if args.action == "metadata":
+    if args.globals is None:
+        console.log("You must provide a --globals argument for the metadata file")
+        sys.exit(1)
+    metadata = read_metadata(args.globals)
+    console.log(metadata)
     sys.exit(0)

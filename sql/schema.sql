@@ -47,4 +47,13 @@ create table if not exists current_group as
 
 
 
-
+create table if not exists metadata (
+    id integer primary key autoincrement,
+    block_id int,  
+    key text,
+    value text, 
+    CONSTRAINT fk_block
+        FOREIGN KEY (block_id)
+        REFERENCES blocks(id)
+        ON DELETE CASCADE,
+);
