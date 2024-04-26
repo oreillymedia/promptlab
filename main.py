@@ -23,7 +23,6 @@ from slugify import slugify
 from transformations import *
 import os
 from pathlib import Path
-from coolname import generate_slug
 from faker import Faker
 
 
@@ -98,6 +97,27 @@ def convert_wildcard(s):
     return s.replace("*", "%")
 
 
+def generate_slug(length):
+    return fake.slug()
+
+
+# This function takes an array of dictionaries and then a set of transformations expressed as lambda functions
+# It will iterate through the array and apply the transformation if they have matching key names.  For example:
+#
+# transform_by_key([{"text": "hello"}, {"text": "world"}], {"text": lambda x: x.upper()})
+# will return [{"text": "HELLO"}, {"text": "WORLD"}]
+#
+def transform_by_key(data=[], transformations={}):
+    transformed_data = []
+    for d in data:
+        row = {**d}
+        for key, transformation in transformations.items():
+            if key in row.keys():
+                row[key] = transformation(row[key])
+        transformed_data.append(row)
+    return transformed_data
+
+
 def fetch_from_db(sql, tuple):
     conn = sqlite3.connect(args.db)
     conn.row_factory = sqlite3.Row
@@ -106,14 +126,18 @@ def fetch_from_db(sql, tuple):
     results = c.fetchall()
     # get column names and store in a list
     column_names = [description[0] for description in c.description]
+    # Unpack the sqlite row objects into a list of dictionaries
+    # See this great article on this next line
+    # https://nickgeorge.net/programming/python-sqlite3-extract-to-dictionary/
+    unpacked = [{k: item[k] for k in item.keys()} for item in results]
     conn.close()
-    return column_names, results
+    return column_names, unpacked
 
 
 def print_results(title, column_names, results):
     table = Table(title=title, header_style="bold magenta")
     for cn in column_names:
-        table.add_column(cn, justify="center")
+        table.add_column(cn)
     for row in results:
         table.add_row(*[str(row[cn]) for cn in column_names])
     console.print(table)
@@ -232,6 +256,7 @@ def response_already_exists(prompt_text):
 
 
 def fetch_prompts():
+    tag = convert_wildcard(args.tag) if args.tag is not None else "%"
     sql = load_system_file("sql/fetch_prompts.sql.jinja")
     template = Template(sql)
     where_clause = ""
@@ -239,9 +264,9 @@ def fetch_prompts():
     if args.block_id is not None:
         where_clause = "b.id = ?"
         tuple = (int(args.block_id),)
-    elif args.tag is not None:
+    else:
         where_clause = "search_field like ?"
-        tuple = (args.tag.replace("*", "%"),)
+        tuple = (tag,)
     sql = template.render(where_clause=where_clause)
     headers, results = fetch_from_db(sql, tuple)
     return results
@@ -397,6 +422,30 @@ def action_load():
         conn.close()
 
 
+# Loads a file into the database
+def action_load_prompts(prompt_tag):
+    console.log("Loading file", args.fn)
+    # If the load fails then we want to rollback the entire transaction
+    try:
+        conn = sqlite3.connect(args.db)
+        conn.isolation_level = None
+        c = conn.cursor()
+        c.execute("BEGIN")
+        group_id = create_group(c)
+        # Load the prompt data
+        sql = load_system_file("sql/load_blocks_from_prompts.sql")
+        headers, results = fetch_from_db(sql, (prompt_tag,))
+        for idx, p in enumerate(results):
+            create_block(c, group_id, p["response"], p["tag"], idx)
+        update_current_group(c, group_id)
+        conn.commit()
+    except Exception as e:
+        console.log("Unable to process request:", e)
+        conn.rollback()
+    finally:
+        conn.close()
+
+
 def action_transform(transformation):
     # Fetch the block or blocks to use
     if args.block_id is not None:
@@ -503,74 +552,65 @@ def action_prompt(prompt_fn):
     )
 
 
+def action_set_openai_key():
+    home = str(Path.home())
+    # get user input for openai key
+    openai_key = input("Enter your OpenAI API key: ")
+    # write the key to the .promptlab file
+    console.log(f"Missing openai credentials in file {home}/{ENV_FILENAME}.")
+    with open(home + "/" + ENV_FILENAME, "w") as f:
+        f.write(f"OPENAI_API_KEY={openai_key}")
+    console.log(f"API key set successfully and saved in {home}/{ENV_FILENAME}")
+
+
+# *****************************************************************************************
+# Reporting functions -- these mostly just fetch data from the database and print it
+# *****************************************************************************************
 def action_blocks():
-    blocks = []
-    if args.block_id is not None:
-        blocks = fetch_blocks_by_id(args.block_id)
-    else:
-        blocks = fetch_blocks(args.tag)
-    current_group = get_current_group()
-    table = Table(
-        title=f"Blocks for group id {current_group}", header_style="bold magenta"
-    )
-    table.add_column("block_id", justify="center", style="cyan")
-    table.add_column("tag", justify="left")
-    table.add_column("~tokens", justify="right")
-    table.add_column("block", justify="left")
+    tag = convert_wildcard(args.tag) if args.tag is not None else "%"
+    sql = load_system_file("sql/action_fetch_blocks.sql")
+    headers, results = fetch_from_db(sql, (tag,))
+    # add token count in the block column to the results
+    headers.append("token_count")
     total_tokens = 0
-    for idx, block in enumerate(blocks):
-        # Strip and \n and replace with " " for block
-        b = str(block["block"]).replace("\n", " ")
-        tokens = len(b.split(" "))
-        total_tokens += tokens
-        table.add_row(
-            str(block["id"]),
-            block["tag"],
-            "{:,}".format(tokens),
-            b[:40] + "...",
-        )
-    console.print(table)
-    console.print(f"\n{len(blocks)} blocks with {'{:,}'.format(total_tokens)} tokens.")
-    console.print(f"Current group id = {current_group}\n")
+    for r in results:
+        r["token_count"] = len(r["block"].split(" "))
+        total_tokens += r["token_count"]
+    # Transform the results to make them more readable
+    results = transform_by_key(
+        results,
+        {
+            "block": lambda x: x[:40].replace("\n", " "),
+            "token_count": lambda x: "{:,}".format(x),
+        },
+    )
+    print_results("Current Blocks", headers, results)
+    console.print(f"\n{len(results)} blocks with {'{:,}'.format(total_tokens)} tokens.")
+    console.print(f"Current group id = {get_current_group()}\n")
 
 
 def action_groups():
-    current_group_id = get_current_group()
-    results = fetch_groups()
-    table = Table(title="groups", header_style="bold magenta")
-    table.add_column("id", justify="center")
-    table.add_column("arguments", justify="left")
-    table.add_column("blocks", justify="left")
-    for op in results:
-        if op["id"] == current_group_id:
-            table.add_row(
-                f"[bold][red]{op['id']}",
-                f"[bold][red]{op['arguments']}",
-                f"[bold][red]{op['block_count']}",
-            )
-        else:
-            table.add_row(str(op["id"]), op["arguments"], str(op["block_count"]))
-    console.print(table)
-    console.print(f"\nCurrent group_id: {current_group_id}")
-    console.print(f"{len(results)} group(s) in total\n")
+    sql = load_system_file("sql/fetch_groups.sql")
+    headers, results = fetch_from_db(sql, ())
+    print_results("Groups", headers, results)
+    console.print(f"\n{len(results)} group(s) in total")
+    console.print(f"Current group_id: {get_current_group()}\n")
+
+
+def action_prompt_log(prompt_tag):
+    sql = load_system_file("sql/fetch_prompt_log.sql")
+    tag = convert_wildcard(prompt_tag) if prompt_tag is not None else "%"
+    console.log("Fetching prompt logs for tag", tag)
+    columns, results = fetch_from_db(sql, (tag,))
+    results = transform_by_key(results, {"tag": lambda x: x.upper()})
+    print_results("Prompt Logs", columns, results)
 
 
 def action_prompts():
-    prompts = fetch_prompts()
-    table = Table(title=f"Prompts that match your query", header_style="bold magenta")
-    table.add_column("prompt_id", justify="center", style="cyan")
-    table.add_column("block_id", justify="center", style="cyan")
-    table.add_column("search_field", justify="left")
-    table.add_column("block", justify="left")
-    for op in prompts:
-        # Convert the print statement to a rich table
-        table.add_row(
-            str(op["prompt_response_id"]),
-            str(op["block_id"]),
-            op["search_field"],
-            op["block"].replace("\n", " ")[:50],
-        )
-    console.print(table)
+    sql = load_system_file("sql/fetch_prompts_action.sql")
+    tag = convert_wildcard(args.prompt_tag) if args.prompt_tag is not None else "%"
+    columns, results = fetch_from_db(sql, (tag,))
+    print_results("Prompts", columns, results)
 
 
 def action_dump_blocks():
@@ -590,25 +630,6 @@ def action_dump_prompts():
     console.print(get_delimiter().join(out))
 
 
-def action_set_openai_key():
-    home = str(Path.home())
-    # get user input for openai key
-    openai_key = input("Enter your OpenAI API key: ")
-    # write the key to the .promptlab file
-    console.log(f"Missing openai credentials in file {home}/{ENV_FILENAME}.")
-    with open(home + "/" + ENV_FILENAME, "w") as f:
-        f.write(f"OPENAI_API_KEY={openai_key}")
-    console.log(f"API key set successfully and saved in {home}/{ENV_FILENAME}")
-
-
-def action_prompt_log(prompt_tag):
-    sql = load_system_file("sql/fetch_prompt_log.sql")
-    tag = convert_wildcard(prompt_tag) if prompt_tag is not None else "%"
-    console.log("Fetching prompt logs for tag", tag)
-    columns, results = fetch_from_db(sql, (tag,))
-    print_results("Prompt Logs", columns, results)
-
-
 # *****************************************************************************************
 # Define commandline flags, arguments, and the functions that love them
 # *****************************************************************************************
@@ -622,6 +643,7 @@ parser.add_argument(
         "init",
         "load",
         "load-transcript",
+        "load-prompts",
         "dump-blocks",
         "dump-prompts",
         "group",
@@ -655,7 +677,6 @@ parser.add_argument(
     required=False,
     default="*",
 )
-
 
 parser.add_argument(
     "--transformation",
@@ -699,11 +720,27 @@ if args.action == "load":
         exit(1)
     action_load()
 
-if args.action == "group":
+if args.action == "load-transcript":
+    check_db(args.db)
+    if args.work is None:
+        console.log("You must provide a --work argument for the work to load")
+        exit(1)
+    action_load_transcript()
+    sys.exit(0)
+
+if args.action == "load-prompts":
     check_db(args.db)
     if args.fn is None:
         console.log("You must provide a --fn argument for the file to read")
-        sys.exit(1)
+        exit(1)
+    if args.prompt_tag is None:
+        console.log("You must provide a --prompt_tag argument for the prompt tag")
+        exit(1)
+    action_load_prompts(args.prompt_tag)
+    sys.exit(0)
+
+if args.action == "group":
+    check_db(args.db)
     if args.transformation is None:
         console.log("You must provide a --transformation argument to use")
         sys.exit(1)
@@ -762,13 +799,6 @@ if args.action == "prompt-log":
     action_prompt_log(args.prompt_tag)
     sys.exit(0)
 
-if args.action == "load-transcript":
-    check_db(args.db)
-    if args.work is None:
-        console.log("You must provide a --work argument for the work to load")
-        exit(1)
-    action_load_transcript()
-    sys.exit(0)
 
 if args.action == "version":
     console.log("Version", VERSION)

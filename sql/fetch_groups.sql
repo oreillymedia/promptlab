@@ -1,6 +1,7 @@
 select
    o.id, 
    o.arguments,
+   o.tag,
    count(b.id) block_count
   FROM
      groups o
