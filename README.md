@@ -266,6 +266,34 @@ You can also include an optional `--delimiter` to specifiy how to join the promp
 python main.py dump-prompts --tag="*json-topics-with-roles-no-skill*" --delimiter=",\n"
 ```
 
+## Metadata
+
+### Global metadata
+
+A file of metadat values you want to use:
+
+```
+title: Designing Data Intensive Applications
+topic: data science
+author: Some dude
+```
+
+These keys can then be used in a template, like this:
+
+```
+{{title}}
+
+Has the topic {{topic}} written by {{author}}.
+
+{{block}}
+```
+
+You include the metadata file using the `--globals` when your create your prompts:
+
+```
+promptlab prompt --fn=myprompt.jinja --globals=data.yml
+```
+
 # Building standalone executable
 
 First, be sure you're set up to run pyinstaller by reading [Build an executable with pyinstaller](http://www.gregreda.com/2023/05/18/notes-on-using-pyinstaller-poetry-and-pyenv/). This is another good [tutorial on pyinstaller](https://www.devdungeon.com/content/pyinstaller-tutorial).

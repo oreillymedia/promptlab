@@ -55,5 +55,5 @@ create table if not exists metadata (
     CONSTRAINT fk_block
         FOREIGN KEY (block_id)
         REFERENCES blocks(id)
-        ON DELETE CASCADE,
+        ON DELETE CASCADE
 );

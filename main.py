@@ -59,6 +59,8 @@ def load_env():
     return True
 
 
+# Loads a file eirher from the current directory or from the directory
+# in which the script was run, which is needed when pyinstaller loads external files
 def load_file(fn, config=False):
     if config:
         # find filepath for where the script is actually running
@@ -434,9 +436,8 @@ def action_load():
         conn.close()
 
 
-# Loads a file into the database
-def action_load_prompts(prompt_tag):
-    console.log("Loading file", args.fn)
+def action_transfer_prompts_to_blocks(prompt_tag):
+    console.log("Creating blocks from prompt tag", prompt_tag)
     # If the load fails then we want to rollback the entire transaction
     try:
         conn = sqlite3.connect(args.db)
@@ -447,9 +448,31 @@ def action_load_prompts(prompt_tag):
         # Load the prompt data
         sql = load_system_file("sql/load_blocks_from_prompts.sql")
         headers, results = fetch_from_db(sql, (prompt_tag,))
+        print(len(results), "prompts found")
+        print(results[0])
         for idx, p in enumerate(results):
-            create_block(c, group_id, p["response"], p["tag"], idx)
+            create_block(c, group_id, p["block"], p["tag"], p["parent"])
         update_current_group(c, group_id)
+        conn.commit()
+    except Exception as e:
+        console.log("Unable to process request:", e)
+        conn.rollback()
+    finally:
+        conn.close()
+
+
+# Takes prompts and converts them to metadata under the supplied key
+def action_transfer_prompts_to_metadata(prompt_tag, metadata_key):
+    sql = load_system_file("sql/fetch_prompts_action.sql")
+    header, results = fetch_from_db(sql, (prompt_tag,))
+    try:
+        sql = load_system_file("sql/create_metadata.sql")
+        conn = sqlite3.connect(args.db)
+        conn.isolation_level = None
+        c = conn.cursor()
+        c.execute("BEGIN")
+        for r in results:
+            c.execute(sql, (r["block_id"], metadata_key, r["response"]))
         conn.commit()
     except Exception as e:
         console.log("Unable to process request:", e)
@@ -526,7 +549,6 @@ def action_prompt(prompt_fn):
     idx = 1
     for b in blocks:
         prompt_text = template.render(block=b["block"], **metadata)
-        print(prompt_text)
         if response_already_exists(prompt_text):
             console.log(
                 f"({idx}/{len(blocks)}) Prompt already exists for",
@@ -618,7 +640,6 @@ def action_prompt_log(prompt_tag):
     tag = convert_wildcard(prompt_tag) if prompt_tag is not None else "%"
     console.log("Fetching prompt logs for tag", tag)
     columns, results = fetch_from_db(sql, (tag,))
-    results = transform_by_key(results, {"tag": lambda x: x.upper()})
     print_results("Prompt Logs", columns, results)
 
 
@@ -677,7 +698,7 @@ parser.add_argument(
         "set-group",
         "version",
         "set-openai-key",
-        "metadata",
+        "transfer-prompts",
     ],
     help="The action to perform ",
 )
@@ -731,6 +752,20 @@ parser.add_argument(
     required=False,
     default=False,
     action=argparse.BooleanOptionalAction,
+)
+
+parser.add_argument(
+    "--to",
+    help="Where to transfer prompts",
+    choices=["metadata", "blocks"],
+    required=False,
+    default="metadata",
+)
+
+parser.add_argument(
+    "--metadata_key",
+    help="Name of metadata key; this will match the name in a prompt template",
+    required=False,
 )
 
 args = parser.parse_args()
@@ -842,3 +877,19 @@ if args.action == "metadata":
     metadata = read_metadata(args.globals)
     console.log(metadata)
     sys.exit(0)
+
+if args.action == "transfer-prompts":
+    check_db(args.db)
+    if args.prompt_tag is None:
+        console.log("You must provide a --prompt_tag argument for the prompt tag")
+        exit(1)
+    if args.to == "metadata" and args.metadata_key is None:
+        console.log("You must provide a --metadata_key argument for the metadata key")
+        exit(1)
+    if args.to == "metadata":
+        action_transfer_prompts_to_metadata(args.prompt_tag, args.metadata_key)
+    elif args.to == "blocks":
+        action_transfer_prompts_to_blocks(args.prompt_tag)
+    else:
+        console.log("Unknown transfer target", args.to)
+        sys.exit(1)
