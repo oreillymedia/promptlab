@@ -9,3 +9,4 @@ dist
 build
 .env.old
 *.sqbpro
+.DS_Store

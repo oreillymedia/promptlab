@@ -30,7 +30,7 @@ console = Console()
 fake = Faker()
 log = logging.getLogger("rich")
 
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 ENV_FILENAME = ".promptlab"
 
@@ -55,7 +55,7 @@ def load_env():
     if not os.path.isfile(home + "/" + ENV_FILENAME):
         return False
     load_dotenv(home + "/" + ENV_FILENAME)
-    console.log(f"Loaded OpenAI API key from {home}/{ENV_FILENAME}")
+    console.log(f"Loaded  API key from {home}/{ENV_FILENAME}")
     return True
 
 
@@ -121,19 +121,26 @@ def transform_by_key(data=[], transformations={}):
 
 
 def fetch_from_db(sql, tuple):
-    conn = sqlite3.connect(args.db)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute(sql, tuple)
-    results = c.fetchall()
-    # get column names and store in a list
-    column_names = [description[0] for description in c.description]
-    # Unpack the sqlite row objects into a list of dictionaries
-    # See this great article on this next line
-    # https://nickgeorge.net/programming/python-sqlite3-extract-to-dictionary/
-    unpacked = [{k: item[k] for k in item.keys()} for item in results]
-    conn.close()
-    return column_names, unpacked
+    try:
+        conn = sqlite3.connect(args.db)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute(sql, tuple)
+        results = c.fetchall()
+        # get column names and store in a list
+        column_names = [description[0] for description in c.description]
+        # Unpack the sqlite row objects into a list of dictionaries
+        # See this great article on this next line
+        # https://nickgeorge.net/programming/python-sqlite3-extract-to-dictionary/
+        unpacked = [{k: item[k] for k in item.keys()} for item in results]
+        conn.close()
+        return column_names, unpacked
+    except Exception as e:
+        console.log("[red]An error occurred on this request[/red]")
+        console.log(" ".join(sys.argv))
+        console.log("SQL used in this request is:\n\n", sql)
+        console.log(f"\nThe following error occurred:\n\n[red]{e}[/red]\n")
+        sys.exit(1)
 
 
 def print_results(title, column_names, results):
@@ -162,10 +169,10 @@ def read_metadata(fn):
 # *****************************************************************************************
 
 
-def create_group(c):
+def create_group(c, tag=None):
     sql = load_system_file("sql/create_group.sql")
+    tag = tag if tag is not None else generate_slug(3)
     arguments = " ".join(sys.argv)
-    tag = args.group_tag if args.group_tag is not None else generate_slug(3)
     c.execute(sql, (arguments, tag))
     group_id = c.lastrowid
     return group_id
@@ -198,27 +205,19 @@ def update_current_group(c, group_id):
 
 def create_block(c, group_id, block, tag, parent_id):
     sql = load_system_file("sql/create_block.sql")
-    c.execute(sql, (group_id, block, tag, parent_id))
+    token_count = len(block.split(" "))
+    c.execute(sql, (group_id, block, tag, parent_id, token_count))
     block_id = c.lastrowid
     return block_id
 
 
-def fetch_blocks(tag, latest=True):
-    # Replace the * with a pct, which is what sqlite3 requires for wildcards
-    tag = convert_wildcard(tag) if tag is not None else "%"
-    if latest:
-        sql = load_system_file("sql/fetch_latest_blocks.sql")
-    else:
-        sql = load_system_file("sql/fetch_blocks.sql")
-    headers, results = fetch_from_db(sql, (tag,))
-    return results
-
-
-def fetch_blocks_by_id(id):
-    # Replace the * with a pct, which is what sqlite3 requires for wildcards
-    sql = load_system_file("sql/fetch_block_by_id.sql")
-    headers, results = fetch_from_db(sql, (id,))
-    return results
+# fetch blocks and apply where clause if it exists
+# TODO: something arouns sql injection here. there is probbaly a python library
+def fetch_blocks(tag=None, latest=True):
+    sql = load_system_file("sql/v_current_blocks.sql")
+    if args.where is not None:
+        sql += " where " + args.where
+    return fetch_from_db(sql, ())
 
 
 # *****************************************************************************************
@@ -270,6 +269,13 @@ def response_already_exists(prompt_text):
 
 
 def fetch_prompts():
+    sql = load_system_file("sql/v_current_prompts.sql")
+    if args.where is not None:
+        sql += " where " + args.where
+    return fetch_from_db(sql, ())
+
+
+def fetch_prompts_old():
     tag = convert_wildcard(args.tag) if args.tag is not None else "%"
     sql = load_system_file("sql/fetch_prompts.sql.jinja")
     template = Template(sql)
@@ -353,7 +359,7 @@ def action_load_transcript():
         conn.isolation_level = None
         c = conn.cursor()
         c.execute("BEGIN")
-        group_id = create_group(c)
+        group_id = create_group(c, args.group_tag)
         for idx, t in enumerate(flattened_toc):
             url = fetch_transcript_url(args.work, t["metadata"]["full_path"])
             transcript = fetch_transcript_by_url(url)
@@ -408,7 +414,7 @@ def action_load():
         conn.isolation_level = None
         c = conn.cursor()
         c.execute("BEGIN")
-        group_id = create_group(c)
+        group_id = create_group(c, args.group_tag)
         # Load the file based on the filetype
         if args.fn.endswith(".epub"):
             book = epub.read_epub(args.fn, {"ignore_ncx": True})
@@ -444,12 +450,10 @@ def action_transfer_prompts_to_blocks(prompt_tag):
         conn.isolation_level = None
         c = conn.cursor()
         c.execute("BEGIN")
-        group_id = create_group(c)
+        group_id = create_group(c, args.group_tag)
         # Load the prompt data
         sql = load_system_file("sql/load_blocks_from_prompts.sql")
         headers, results = fetch_from_db(sql, (prompt_tag,))
-        print(len(results), "prompts found")
-        print(results[0])
         for idx, p in enumerate(results):
             create_block(c, group_id, p["block"], p["tag"], p["parent"])
         update_current_group(c, group_id)
@@ -483,19 +487,16 @@ def action_transfer_prompts_to_metadata(prompt_tag, metadata_key):
 
 def action_transform(transformation):
     # Fetch the block or blocks to use
-    if args.block_id is not None:
-        blocks = fetch_blocks_by_id(args.block_id)
-    else:
-        blocks = fetch_blocks(args.tag)
+    headers, blocks = fetch_blocks()
     # Open a new connection
     conn = sqlite3.connect(args.db)
     conn.isolation_level = None
     c = conn.cursor()
     c.execute("BEGIN")
-    group_id = create_group(c)
+    group_id = create_group(c, args.group_tag)
     try:
         for b in blocks:
-            console.log("Processing block", b["tag"])
+            console.log("Processing block", b["block_tag"])
             # Apply the transformation to the block
             match transformation:
                 case "token-split":
@@ -513,22 +514,22 @@ def action_transform(transformation):
                 case "new-line-split":
                     result = transformation_newline_split(b["block"])
                 case _:
-                    console.log("Unknown transformation", args.transformation)
-                    sys.exit(1)
+                    raise Exception(f"Unknown transformation {args.transformation}")
             # If the result is a list, then create a block for each element
             if type(result) is list:
                 for r in result:
-                    create_block(c, group_id, r, b["tag"], b["id"])
+                    create_block(c, group_id, r, b["block_tag"], b["block_id"])
             elif type(result) is str:
-                create_block(c, group_id, result, b["tag"], b["id"])
+                create_block(c, group_id, result, b["block_tag"], b["block_id"])
             else:
                 # Raise an error
                 raise Exception(f"Result is not a list or string: {type(result)}")
         update_current_group(c, group_id)
         conn.commit()
     except Exception as e:
-        console.log("Unable to process request:", e)
         conn.rollback()
+        console.log(f"[red]The following error occurred: {e}[/red]")
+        sys.exit(1)
     finally:
         conn.close()
 
@@ -540,10 +541,7 @@ def action_prompt(prompt_fn):
     if args.globals is not None:
         metadata = read_metadata(args.globals)
     template = Template(prompt)
-    if args.block_id is not None:
-        blocks = fetch_blocks_by_id(args.block_id)
-    else:
-        blocks = fetch_blocks(args.tag)
+    headers, blocks = fetch_blocks()
     # Apply the template to each block
     prompt_log_id, prompt_tag = create_prompt_log(prompt_fn, prompt)
     idx = 1
@@ -552,16 +550,16 @@ def action_prompt(prompt_fn):
         if response_already_exists(prompt_text):
             console.log(
                 f"({idx}/{len(blocks)}) Prompt already exists for",
-                b["id"],
-                b["tag"],
+                b["block_id"],
+                b["block_tag"],
                 b["block"][:40].replace("\n", " "),
             )
             idx += 1
             continue
         console.log(
             f"({idx}/{len(blocks)}) Prompting block",
-            b["id"],
-            b["tag"],
+            b["block_id"],
+            b["block_tag"],
             b["block"][:40].replace("\n", " "),
         )
         start = time.time()
@@ -580,7 +578,7 @@ def action_prompt(prompt_fn):
         end = time.time()
         # Save the response to the database
         create_prompt_response(
-            prompt_log_id, b["id"], prompt_text, response_txt, end - start
+            prompt_log_id, b["block_id"], prompt_text, response_txt, end - start
         )
         console.log(
             "Elapsed time", end - start, " -> ", response_txt[:40].replace("\n", " ")
@@ -588,6 +586,30 @@ def action_prompt(prompt_fn):
     console.log(
         f"\nPrompt response saved with id {prompt_log_id} and prompt_tag {prompt_tag}"
     )
+
+
+def action_filter():
+    console.log("Filtering blocks")
+    # Fetch the block or blocks to use
+    headers, blocks = fetch_blocks()
+    # Open a new connection
+    conn = sqlite3.connect(args.db)
+    conn.isolation_level = None
+    c = conn.cursor()
+    c.execute("BEGIN")
+    group_id = create_group(c, args.group_tag)
+    try:
+        for b in blocks:
+            console.log("Processing block", b["block_tag"])
+            create_block(c, group_id, b["block"], b["block_tag"], b["block_id"])
+        update_current_group(c, group_id)
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        console.log(f"[red]The following error occurred: {e}[/red]")
+        sys.exit(1)
+    finally:
+        conn.close()
 
 
 def action_set_openai_key():
@@ -605,15 +627,12 @@ def action_set_openai_key():
 # Reporting functions -- these mostly just fetch data from the database and print it
 # *****************************************************************************************
 def action_blocks():
-    tag = convert_wildcard(args.tag) if args.tag is not None else "%"
-    sql = load_system_file("sql/action_fetch_blocks.sql")
-    headers, results = fetch_from_db(sql, (tag,))
+    columns, results = fetch_blocks()
     # add token count in the block column to the results
-    headers.append("token_count")
-    total_tokens = 0
-    for r in results:
-        r["token_count"] = len(r["block"].split(" "))
-        total_tokens += r["token_count"]
+
+    # use lise comprehension to sum up the results["token_count"] to get the total tokens
+    total_tokens = sum([r["token_count"] for r in results])
+
     # Transform the results to make them more readable
     results = transform_by_key(
         results,
@@ -622,9 +641,10 @@ def action_blocks():
             "token_count": lambda x: "{:,}".format(x),
         },
     )
-    print_results("Current Blocks", headers, results)
+    print_results("Current Blocks", columns, results)
     console.print(f"\n{len(results)} blocks with {'{:,}'.format(total_tokens)} tokens.")
     console.print(f"Current group id = {get_current_group()}\n")
+    console.print("The following fields available in --where clause:", columns)
 
 
 def action_groups():
@@ -644,23 +664,24 @@ def action_prompt_log(prompt_tag):
 
 
 def action_prompts():
-    sql = load_system_file("sql/fetch_prompts_action.sql")
-    tag = convert_wildcard(args.prompt_tag) if args.prompt_tag is not None else "%"
-    columns, results = fetch_from_db(sql, (tag,))
+    sql = load_system_file("sql/v_current_prompts.sql")
+    if args.where is not None:
+        sql += " where " + args.where
+    columns, results = fetch_from_db(sql, ())
     results = transform_by_key(
         results,
         {
             "response": lambda x: x[:40].replace("\n", " "),
+            "elapsed_time_in_seconds": lambda x: f"{x:.2f}",
         },
     )
     print_results("Prompts", columns, results)
+    console.print(f"\n{len(results)} prompts in total")
+    console.print("The following fields available in --where clause:", columns)
 
 
 def action_dump_blocks():
-    if args.block_id is not None:
-        blocks = fetch_blocks_by_id(args.block_id)
-    else:
-        blocks = fetch_blocks(args.tag)
+    headers, blocks = fetch_blocks()
     # Pull out the block element into it's own list
     out = [b["block"] for b in blocks]
     console.print(get_delimiter().join(out))
@@ -689,7 +710,7 @@ parser.add_argument(
         "load-prompts",
         "dump-blocks",
         "dump-prompts",
-        "group",
+        "transform",
         "groups",
         "blocks",
         "prompt",
@@ -699,6 +720,7 @@ parser.add_argument(
         "version",
         "set-openai-key",
         "transfer-prompts",
+        "filter",
     ],
     help="The action to perform ",
 )
@@ -714,6 +736,10 @@ parser.add_argument(
 parser.add_argument("--prompt_tag", help="Tag to filter on", required=False)
 parser.add_argument("--group_tag", help="Tag to filter on", required=False)
 parser.add_argument("--tag", help="Tag to filter on", required=False)
+
+parser.add_argument(
+    "--where", help="SQLITE Where clause to use to select blocks", required=False
+)
 
 parser.add_argument(
     "--globals", help="Name of the file with global metadata", required=False
@@ -801,7 +827,7 @@ if args.action == "load-prompts":
     action_load_prompts(args.prompt_tag)
     sys.exit(0)
 
-if args.action == "group":
+if args.action == "transform":
     check_db(args.db)
     if args.transformation is None:
         console.log("You must provide a --transformation argument to use")
@@ -893,3 +919,11 @@ if args.action == "transfer-prompts":
     else:
         console.log("Unknown transfer target", args.to)
         sys.exit(1)
+
+if args.action == "filter":
+    check_db(args.db)
+    if args.where is None:
+        console.log("You must provide a --where clause for the filter")
+        exit(1)
+    action_filter()
+    sys.exit(0)

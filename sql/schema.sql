@@ -12,6 +12,7 @@ create table if not exists blocks (
     created_at datetime DEFAULT CURRENT_TIMESTAMP,
     parent_id int DEFAULT 0,
     block text,
+    token_count int,
     CONSTRAINT fk_group
         FOREIGN KEY (group_id)
         REFERENCES groups(id)
@@ -46,7 +47,6 @@ create table if not exists current_group as
     select 0 as id;
 
 
-
 create table if not exists metadata (
     id integer primary key autoincrement,
     block_id int,  
@@ -57,3 +57,6 @@ create table if not exists metadata (
         REFERENCES blocks(id)
         ON DELETE CASCADE
 );
+
+
+
