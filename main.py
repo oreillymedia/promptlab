@@ -11,13 +11,10 @@ import time
 import shutil
 import os
 from jinja2 import Template
-import re
 import sys
 import openai
-import json
 import hashlib
 import logging
-import requests
 import glob
 from slugify import slugify
 from transformations import *
@@ -41,11 +38,8 @@ ENV_FILENAME = ".promptlab"
 # If the db exists; if not, print error and exit.  Otherwise sqlite silently create a new file.
 def check_db(fn):
     if not os.path.isfile(fn):
-        console.log(
-            "Database file",
-            fn,
-            "does not exist.  Check the filename or run init to create a new database.",
-        )
+        console.log(f"Database file {fn} does not exist.")
+        console.log("Check the filename or run init to create a new database.")
         exit(1)
 
 
@@ -55,7 +49,7 @@ def load_env():
     if not os.path.isfile(home + "/" + ENV_FILENAME):
         return False
     load_dotenv(home + "/" + ENV_FILENAME)
-    console.log(f"Loaded  API key from {home}/{ENV_FILENAME}")
+    console.log(f"Loaded API key from {home}/{ENV_FILENAME}")
     return True
 
 
@@ -179,12 +173,17 @@ def create_group(c, tag=None):
 
 
 def get_current_group():
-    headers, results = fetch_from_db("select * from current_group", ())
+    headers, results = fetch_from_db(
+        "select cg.id, g.tag group_tag from current_group cg join groups g on g.id = cg.id",
+        (),
+    )
     try:
         group_id = results[0]["id"]
+        group_tag = results[0]["group_tag"]
     except:
         group_id = 0
-    return int(group_id)
+        group_tag = ""
+    return int(group_id), group_tag
 
 
 def fetch_groups():
@@ -193,9 +192,20 @@ def fetch_groups():
     return results
 
 
-def update_current_group(c, group_id):
+def set_group(c, group_id):
     c.execute("UPDATE current_group set id = ?", (group_id,))
     return group_id
+
+
+def get_group_id_by_tag():
+    headers, results = fetch_from_db(
+        "select id from groups where tag = ?", (args.group_tag,)
+    )
+    try:
+        return results[0]["id"]
+    except:
+        console.log("[red]Group not found[/red]")
+        sys.exit(1)
 
 
 # *****************************************************************************************
@@ -275,110 +285,6 @@ def fetch_prompts():
     return fetch_from_db(sql, ())
 
 
-def fetch_prompts_old():
-    tag = convert_wildcard(args.tag) if args.tag is not None else "%"
-    sql = load_system_file("sql/fetch_prompts.sql.jinja")
-    template = Template(sql)
-    where_clause = ""
-    tuple = ()
-    if args.block_id is not None:
-        where_clause = "b.id = ?"
-        tuple = (int(args.block_id),)
-    else:
-        where_clause = "search_field like ?"
-        tuple = (tag,)
-    sql = template.render(where_clause=where_clause)
-    headers, results = fetch_from_db(sql, tuple)
-    return results
-
-
-# *****************************************************************************************
-# Functions related to fetching a transcript
-# *****************************************************************************************
-
-
-def fetch_url(url):
-    console.log("[bold]Fetching... [/]: [italic]" + url + "[/]")
-    r = requests.get(url)
-    return r.json()
-
-
-# Fetch the table of contents given a work
-def fetch_toc_url(work):
-    url = f"https://learning.oreilly.com/api/v1/book/{work}/toc/"
-    return url
-
-
-# Fetch the transcript given a work and a fragment
-def fetch_transcript_url(work, fragment):
-    url = f"https://learning.oreilly.com/api/v1/book/{work}/chapter-content/{fragment}"
-    return url
-
-
-# Reads in a table of contents and flattens it into a list
-def flatten_toc(toc, out=[], depth=0):
-    for child in toc:
-        # deep Copy the cild into a new variable
-        rec = {
-            "id": child["id"],
-            "title": child["label"],
-            "url": child["url"],
-            "metadata": {
-                "full_path": child["full_path"],
-                "depth": child["depth"] + depth,
-            },
-        }
-        out.append(rec)
-        if "children" in child:
-            flatten_toc(child["children"], out, depth + 1)
-    return out
-
-
-# Fetch the transcript given a URL and return just the text
-def fetch_transcript_by_url(url):
-    console.log("[bold]Parsing... [/]: [italic]" + url + "[/]")
-    r = requests.get(url)
-    raw = r.text
-    soup = BeautifulSoup(raw, "html.parser")
-    transcript = ""
-    for p in soup.select(".transcript p"):
-        text = p.select_one(".text").get_text()
-        transcript += text + " "
-    return transcript
-
-
-def action_load_transcript():
-
-    # Fetch the work's table of contents
-    toc_url = fetch_toc_url(args.work)
-    toc = fetch_url(toc_url)
-    flattened_toc = flatten_toc(toc)
-    # Grab the transcript for each work and store it as metadata
-    try:
-        conn = sqlite3.connect(args.db)
-        conn.isolation_level = None
-        c = conn.cursor()
-        c.execute("BEGIN")
-        group_id = create_group(c, args.group_tag)
-        for idx, t in enumerate(flattened_toc):
-            url = fetch_transcript_url(args.work, t["metadata"]["full_path"])
-            transcript = fetch_transcript_by_url(url)
-            level = "#"
-            if t["metadata"]["depth"] > 1:
-                level = "##"
-            md = f"{level} {t['title']}\n\n{transcript}"
-            # format idx to 3 digits
-            tag = args.work + "-" + str(idx + 1).zfill(3) + "-" + slugify(t["title"])
-            create_block(c, group_id, md, tag, 0)
-        update_current_group(c, group_id)
-        conn.commit()
-    except Exception as e:
-        console.log("Unable to process request:", e)
-        conn.rollback()
-    finally:
-        conn.close()
-
-
 # *****************************************************************************************
 # Action groups
 # *****************************************************************************************
@@ -424,7 +330,7 @@ def action_load():
                     html = item.get_content().decode("utf-8")
                     create_block(c, group_id, html, item.get_name(), 0)
                     idx += 1
-            update_current_group(c, group_id)
+            set_group(c, group_id)
             conn.commit()
         else:
             files = glob.glob(args.fn)
@@ -433,7 +339,7 @@ def action_load():
                 txt = load_user_file(f)
                 create_block(c, group_id, txt, f, idx)
                 idx += 1
-            update_current_group(c, group_id)
+            set_group(c, group_id)
             conn.commit()
     except Exception as e:
         console.log("Unable to process request:", e)
@@ -456,7 +362,7 @@ def action_transfer_prompts_to_blocks(prompt_tag):
         headers, results = fetch_from_db(sql, (prompt_tag,))
         for idx, p in enumerate(results):
             create_block(c, group_id, p["block"], p["tag"], p["parent"])
-        update_current_group(c, group_id)
+        set_group(c, group_id)
         conn.commit()
     except Exception as e:
         console.log("Unable to process request:", e)
@@ -524,7 +430,7 @@ def action_transform(transformation):
             else:
                 # Raise an error
                 raise Exception(f"Result is not a list or string: {type(result)}")
-        update_current_group(c, group_id)
+        set_group(c, group_id)
         conn.commit()
     except Exception as e:
         conn.rollback()
@@ -535,7 +441,7 @@ def action_transform(transformation):
 
 
 def action_prompt(prompt_fn):
-    openai.api_key = os.environ["OPENAI_API_KEY"]
+    openai.api_key = os.environ["API_KEY"]
     prompt = load_user_file(prompt_fn)
     metadata = {}
     if args.globals is not None:
@@ -602,7 +508,7 @@ def action_filter():
         for b in blocks:
             console.log("Processing block", b["block_tag"])
             create_block(c, group_id, b["block"], b["block_tag"], b["block_id"])
-        update_current_group(c, group_id)
+        set_group(c, group_id)
         conn.commit()
     except Exception as e:
         conn.rollback()
@@ -612,14 +518,15 @@ def action_filter():
         conn.close()
 
 
-def action_set_openai_key():
+def action_set_api_key():
+    console.log("Setting API key")
     home = str(Path.home())
-    # get user input for openai key
-    openai_key = input("Enter your OpenAI API key: ")
+    # get user input for api key
+    api_key = input("Enter your API key: ")
     # write the key to the .promptlab file
-    console.log(f"Missing openai credentials in file {home}/{ENV_FILENAME}.")
+    console.log(f"Missing credentials in file {home}/{ENV_FILENAME}.")
     with open(home + "/" + ENV_FILENAME, "w") as f:
-        f.write(f"OPENAI_API_KEY={openai_key}")
+        f.write(f"API_KEY={api_key}")
     console.log(f"API key set successfully and saved in {home}/{ENV_FILENAME}")
 
 
@@ -706,7 +613,6 @@ parser.add_argument(
     choices=[
         "init",
         "load",
-        "load-transcript",
         "load-prompts",
         "dump-blocks",
         "dump-prompts",
@@ -718,7 +624,7 @@ parser.add_argument(
         "prompt-log",
         "set-group",
         "version",
-        "set-openai-key",
+        "set-api-key",
         "transfer-prompts",
         "filter",
     ],
@@ -762,9 +668,7 @@ parser.add_argument("--block_id", help="Block ID to use", required=False)
 parser.add_argument("--group_id", help="Group ID to use", required=False)
 parser.add_argument("--prompt", help="Prompt to use", required=False)
 parser.add_argument("--model", help="Model to use", required=False, default="gpt-4")
-parser.add_argument(
-    "--work", help="Work to use", required=False, default="9781098115302"
-)
+
 parser.add_argument(
     "--delimiter",
     help="Delimiter to use when dumping prompts",
@@ -808,13 +712,6 @@ if args.action == "load":
         exit(1)
     action_load()
 
-if args.action == "load-transcript":
-    check_db(args.db)
-    if args.work is None:
-        console.log("You must provide a --work argument for the work to load")
-        exit(1)
-    action_load_transcript()
-    sys.exit(0)
 
 if args.action == "load-prompts":
     check_db(args.db)
@@ -861,21 +758,23 @@ if args.action == "prompt":
         console.log("You must provide a --fn argument for the prompt")
         sys.exit(1)
     if load_env() is False:
-        action_set_openai_key()
+        action_set_api_key()
         load_env()
     action_prompt(args.fn)
     sys.exit(0)
 
 if args.action == "set-group":
     check_db(args.db)
-    if args.group_id is None:
-        console.log("You must provide a --group_id argument for the group")
+    if args.group_tag is None:
+        console.log("You must provide a --group_tag argument for the group")
         exit(1)
+    group_id = get_group_id_by_tag()
     conn = sqlite3.connect(args.db)
     c = conn.cursor()
-    update_current_group(c, args.group_id)
+    set_group(c, group_id)
     conn.commit()
     conn.close()
+    console.log(f"Group set to {(group_id, args.group_tag)}")
 
 if args.action == "prompts":
     check_db(args.db)
@@ -892,8 +791,8 @@ if args.action == "version":
     console.log("Version", VERSION)
     sys.exit(0)
 
-if args.action == "set-openai-key":
-    action_set_openai_key()
+if args.action == "set-api-key":
+    action_set_api_key()
     sys.exit(0)
 
 if args.action == "metadata":
