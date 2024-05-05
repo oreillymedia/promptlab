@@ -97,6 +97,13 @@ def generate_slug(length):
     return fake.slug()
 
 
+# Used to get the where clause.  I'll add something about ssql injection here later
+def apply_where_clause(sql):
+    if args.where is not None:
+        sql += " where " + args.where
+    return sql
+
+
 # This function takes an array of dictionaries and then a set of transformations expressed as lambda functions
 # It will iterate through the array and apply the transformation if they have matching key names.  For example:
 #
@@ -156,6 +163,25 @@ def read_metadata(fn):
     # parse the yml file into a dictionary
     metadata = yaml.safe_load(txt)
     return metadata
+
+
+# Takes prompts and converts them to metadata under the supplied key
+def action_transfer_prompts_to_metadata(prompt_tag, metadata_key):
+    header, results = fetch_prompts()
+    try:
+        sql = load_system_file("sql/create_metadata.sql")
+        conn = sqlite3.connect(args.db)
+        conn.isolation_level = None
+        c = conn.cursor()
+        c.execute("BEGIN")
+        for r in results:
+            c.execute(sql, (r["block_id"], metadata_key, r["response"]))
+        conn.commit()
+    except Exception as e:
+        console.log("Unable to process request:", e)
+        conn.rollback()
+    finally:
+        conn.close()
 
 
 # *****************************************************************************************
@@ -223,11 +249,34 @@ def create_block(c, group_id, block, tag, parent_id):
 
 # fetch blocks and apply where clause if it exists
 # TODO: something arouns sql injection here. there is probbaly a python library
-def fetch_blocks(tag=None, latest=True):
+def fetch_blocks(tag=None, latest=True, sort_by=None):
     sql = load_system_file("sql/v_current_blocks.sql")
-    if args.where is not None:
-        sql += " where " + args.where
-    return fetch_from_db(sql, ())
+    sql = apply_where_clause(sql)
+    headers, results = fetch_from_db(sql, ())
+    if sort_by is not None:
+        results = sorted(results, key=lambda d: d[sort_by])
+    else:
+        results = sorted(results, key=lambda d: d[headers[0]])
+    return headers, results
+
+
+def insert_blocks_in_new_group(blocks):
+    # If the load fails then we want to rollback the entire transaction
+    try:
+        conn = sqlite3.connect(args.db)
+        conn.isolation_level = None
+        c = conn.cursor()
+        c.execute("BEGIN")
+        group_id = create_group(c, args.group_tag)
+        for b in blocks:
+            create_block(c, group_id, b["block"], b["tag"], b["parent_id"])
+        set_group(c, group_id)
+        conn.commit()
+    except Exception as e:
+        console.log("Unable to process request:", e)
+        conn.rollback()
+    finally:
+        conn.close()
 
 
 # *****************************************************************************************
@@ -280,8 +329,7 @@ def response_already_exists(prompt_text):
 
 def fetch_prompts():
     sql = load_system_file("sql/v_current_prompts.sql")
-    if args.where is not None:
-        sql += " where " + args.where
+    sql = apply_where_clause(sql)
     return fetch_from_db(sql, ())
 
 
@@ -314,130 +362,75 @@ def action_init():
 # Loads a file into the database
 def action_load():
     console.log("Loading file", args.fn)
+    data = []
     # If the load fails then we want to rollback the entire transaction
-    try:
-        conn = sqlite3.connect(args.db)
-        conn.isolation_level = None
-        c = conn.cursor()
-        c.execute("BEGIN")
-        group_id = create_group(c, args.group_tag)
-        # Load the file based on the filetype
-        if args.fn.endswith(".epub"):
-            book = epub.read_epub(args.fn, {"ignore_ncx": True})
-            idx = 0
-            for item in book.get_items():
-                if item.get_type() == ebooklib.ITEM_DOCUMENT:
-                    html = item.get_content().decode("utf-8")
-                    create_block(c, group_id, html, item.get_name(), 0)
-                    idx += 1
-            set_group(c, group_id)
-            conn.commit()
-        else:
-            files = glob.glob(args.fn)
-            idx = 0
-            for f in files:
-                txt = load_user_file(f)
-                create_block(c, group_id, txt, f, idx)
+    if args.fn.endswith(".epub"):
+        book = epub.read_epub(args.fn, {"ignore_ncx": True})
+        idx = 0
+        for item in book.get_items():
+            if item.get_type() == ebooklib.ITEM_DOCUMENT:
+                html = item.get_content().decode("utf-8")
+                data.append({"block": html, "tag": item.get_name(), "parent_id": 0})
                 idx += 1
-            set_group(c, group_id)
-            conn.commit()
-    except Exception as e:
-        console.log("Unable to process request:", e)
-        conn.rollback()
-    finally:
-        conn.close()
+    else:
+        files = glob.glob(args.fn)
+        idx = 0
+        for f in files:
+            txt = load_user_file(f)
+            data.append({"block": txt, "tag": f, "parent_id": idx})
+            idx += 1
+    insert_blocks_in_new_group(data)
 
 
 def action_transfer_prompts_to_blocks(prompt_tag):
-    console.log("Creating blocks from prompt tag", prompt_tag)
-    # If the load fails then we want to rollback the entire transaction
-    try:
-        conn = sqlite3.connect(args.db)
-        conn.isolation_level = None
-        c = conn.cursor()
-        c.execute("BEGIN")
-        group_id = create_group(c, args.group_tag)
-        # Load the prompt data
-        sql = load_system_file("sql/load_blocks_from_prompts.sql")
-        headers, results = fetch_from_db(sql, (prompt_tag,))
-        for idx, p in enumerate(results):
-            create_block(c, group_id, p["block"], p["tag"], p["parent"])
-        set_group(c, group_id)
-        conn.commit()
-    except Exception as e:
-        console.log("Unable to process request:", e)
-        conn.rollback()
-    finally:
-        conn.close()
-
-
-# Takes prompts and converts them to metadata under the supplied key
-def action_transfer_prompts_to_metadata(prompt_tag, metadata_key):
-    sql = load_system_file("sql/fetch_prompts_action.sql")
-    header, results = fetch_from_db(sql, (prompt_tag,))
-    try:
-        sql = load_system_file("sql/create_metadata.sql")
-        conn = sqlite3.connect(args.db)
-        conn.isolation_level = None
-        c = conn.cursor()
-        c.execute("BEGIN")
-        for r in results:
-            c.execute(sql, (r["block_id"], metadata_key, r["response"]))
-        conn.commit()
-    except Exception as e:
-        console.log("Unable to process request:", e)
-        conn.rollback()
-    finally:
-        conn.close()
+    headers, results = fetch_prompts()
+    # print_results("Prompts to transfer", headers, results)
+    data = []
+    for p in results:
+        data.append(
+            {"block": p["response"], "tag": p["block_tag"], "parent_id": p["block_id"]}
+        )
+    insert_blocks_in_new_group(data)
 
 
 def action_transform(transformation):
     # Fetch the block or blocks to use
     headers, blocks = fetch_blocks()
-    # Open a new connection
-    conn = sqlite3.connect(args.db)
-    conn.isolation_level = None
-    c = conn.cursor()
-    c.execute("BEGIN")
-    group_id = create_group(c, args.group_tag)
-    try:
-        for b in blocks:
-            console.log("Processing block", b["block_tag"])
-            # Apply the transformation to the block
-            match transformation:
-                case "token-split":
-                    result = transformation_token_split(b["block"])
-                case "clean-epub":
-                    result = transformation_clean_epub(b["block"])
-                case "html-h1-split":
-                    result = transformation_html_heading_split(b["block"], ["h1"])
-                case "html-h2-split":
-                    result = transformation_html_heading_split(b["block"], ["h1", "h2"])
-                case "html2md":
-                    result = transformation_html2md(b["block"])
-                case "html2txt":
-                    result = transformation_html2txt(b["block"])
-                case "new-line-split":
-                    result = transformation_newline_split(b["block"])
-                case _:
-                    raise Exception(f"Unknown transformation {args.transformation}")
-            # If the result is a list, then create a block for each element
-            if type(result) is list:
-                for r in result:
-                    create_block(c, group_id, r, b["block_tag"], b["block_id"])
-            elif type(result) is str:
-                create_block(c, group_id, result, b["block_tag"], b["block_id"])
-            else:
-                # Raise an error
-                raise Exception(f"Result is not a list or string: {type(result)}")
-        set_group(c, group_id)
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        console.log(f"[red]The following error occurred: {e}[/red]")
-        sys.exit(1)
-    finally:
-        conn.close()
+    data = []
+    for b in blocks:
+        console.log("Processing block", b["block_tag"])
+        # Apply the transformation to the block
+        match transformation:
+            case "token-split":
+                result = transformation_token_split(b["block"])
+            case "clean-epub":
+                result = transformation_clean_epub(b["block"])
+            case "html-h1-split":
+                result = transformation_html_heading_split(b["block"], ["h1"])
+            case "html-h2-split":
+                result = transformation_html_heading_split(b["block"], ["h1", "h2"])
+            case "html2md":
+                result = transformation_html2md(b["block"])
+            case "html2txt":
+                result = transformation_html2txt(b["block"])
+            case "new-line-split":
+                result = transformation_newline_split(b["block"])
+            case _:
+                raise Exception(f"Unknown transformation {args.transformation}")
+        # If the result is a list, then create a block for each element
+        if type(result) is list:
+            for r in result:
+                data.append(
+                    {"block": r, "tag": b["block_tag"], "parent_id": b["block_id"]}
+                )
+        elif type(result) is str:
+            data.append(
+                {"block": result, "tag": b["block_tag"], "parent_id": b["block_id"]}
+            )
+        else:
+            # Raise an error
+            raise Exception(f"Result is not a list or string: {type(result)}")
+    insert_blocks_in_new_group(data)
 
 
 def action_prompt(prompt_fn):
@@ -499,23 +492,13 @@ def action_filter():
     # Fetch the block or blocks to use
     headers, blocks = fetch_blocks()
     # Open a new connection
-    conn = sqlite3.connect(args.db)
-    conn.isolation_level = None
-    c = conn.cursor()
-    c.execute("BEGIN")
-    group_id = create_group(c, args.group_tag)
-    try:
-        for b in blocks:
-            console.log("Processing block", b["block_tag"])
-            create_block(c, group_id, b["block"], b["block_tag"], b["block_id"])
-        set_group(c, group_id)
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        console.log(f"[red]The following error occurred: {e}[/red]")
-        sys.exit(1)
-    finally:
-        conn.close()
+    data = []
+    for b in blocks:
+        console.log("Processing block", b["block_tag"])
+        data.append(
+            {"block": b["block"], "tag": b["block_tag"], "parent_id": b["block_id"]}
+        )
+    insert_blocks_in_new_group(data)
 
 
 def action_set_api_key():
@@ -572,8 +555,7 @@ def action_prompt_log(prompt_tag):
 
 def action_prompts():
     sql = load_system_file("sql/v_current_prompts.sql")
-    if args.where is not None:
-        sql += " where " + args.where
+    sql = apply_where_clause(sql)
     columns, results = fetch_from_db(sql, ())
     results = transform_by_key(
         results,
@@ -602,101 +584,98 @@ def action_dump_prompts():
 
 
 # *****************************************************************************************
-# Define commandline flags, arguments, and the functions that love them
+# Define commandline arguments and flags
+# *****************************************************************************************
+def define_arguments():
+
+    parser = argparse.ArgumentParser(
+        description="Mangage prommpts across long blocks of text"
+    )
+    parser.add_argument(
+        "action",
+        choices=[
+            "init",
+            "load",
+            "load-prompts",
+            "dump-blocks",
+            "dump-prompts",
+            "transform",
+            "groups",
+            "blocks",
+            "prompt",
+            "prompts",
+            "prompt-log",
+            "set-group",
+            "version",
+            "set-api-key",
+            "transfer-prompts",
+            "filter",
+        ],
+        help="The action to perform ",
+    )
+    # Universal arguments
+    parser.add_argument(
+        "--db", help="The database file", required=False, default="promptlab.db"
+    )
+    # Arguments related to loading files
+    parser.add_argument("--fn", help="Filename", required=False)
+    # Arguments related to naming or fetching blocks, prompts, etc.
+    parser.add_argument("--group_tag", help="Tag to filter on", required=False)
+    parser.add_argument("--prompt_tag", help="Tag to filter on", required=False)
+    parser.add_argument(
+        "--where", help="SQLITE Where clause to use to select blocks", required=False
+    )
+    # Arguments related to prompting
+    parser.add_argument("--prompt", help="Prompt to use", required=False)
+    parser.add_argument("--model", help="Model to use", required=False, default="gpt-4")
+    parser.add_argument(
+        "--fake",
+        help="Generate fake prompt response data (mostly for testing)",
+        required=False,
+        default=False,
+        action=argparse.BooleanOptionalAction,
+    )
+    # Arguments related to transformation operations
+    parser.add_argument(
+        "--transformation",
+        help="Transformation to use: token-split | clean-epub | html-h1-split | html-h2-split | html2md | html2txt | new-line-split",
+        required=False,
+    )
+    # Arguments related to tranferring data from prompts to metadata or blocks
+    parser.add_argument(
+        "--to",
+        help="Where to transfer prompts",
+        choices=["metadata", "blocks"],
+        required=False,
+        default="metadata",
+    )
+    # Arguments related to metadata
+    parser.add_argument(
+        "--globals", help="Name of the file with global metadata", required=False
+    )
+    parser.add_argument(
+        "--metadata_key",
+        help="Name of metadata key; this will match the name in a prompt template",
+        required=False,
+    )
+    # Arguments related to dumping data
+    parser.add_argument(
+        "--delimiter",
+        help="Delimiter to use when dumping prompts",
+        required=False,
+        default="\n\n",
+    )
+    # Things I'm not sure about anymore
+    parser.add_argument("--tag", help="Tag to filter on", required=False)
+    parser.add_argument("--block_id", help="Block ID to use", required=False)
+    parser.add_argument("--group_id", help="Group ID to use", required=False)
+
+    return parser
+
+
 # *****************************************************************************************
 
-parser = argparse.ArgumentParser(
-    description="Mangage prommpts across long blocks of text"
-)
-parser.add_argument(
-    "action",
-    choices=[
-        "init",
-        "load",
-        "load-prompts",
-        "dump-blocks",
-        "dump-prompts",
-        "transform",
-        "groups",
-        "blocks",
-        "prompt",
-        "prompts",
-        "prompt-log",
-        "set-group",
-        "version",
-        "set-api-key",
-        "transfer-prompts",
-        "filter",
-    ],
-    help="The action to perform ",
-)
-
-
-parser.add_argument(
-    "--db", help="The database file", required=False, default="promptlab.db"
-)
-parser.add_argument("--fn", help="Filename", required=False)
-parser.add_argument(
-    "--description", help="Description of the groups", required=False, default=""
-)
-parser.add_argument("--prompt_tag", help="Tag to filter on", required=False)
-parser.add_argument("--group_tag", help="Tag to filter on", required=False)
-parser.add_argument("--tag", help="Tag to filter on", required=False)
-
-parser.add_argument(
-    "--where", help="SQLITE Where clause to use to select blocks", required=False
-)
-
-parser.add_argument(
-    "--globals", help="Name of the file with global metadata", required=False
-)
-
-parser.add_argument(
-    "--msg",
-    help="Message for the operation for later search",
-    required=False,
-    default="*",
-)
-
-parser.add_argument(
-    "--transformation",
-    help="Transformation to use: token-split | clean-epub | html-h1-split | html-h2-split | html2md | html2txt | new-line-split",
-    required=False,
-)
-
-parser.add_argument("--block_id", help="Block ID to use", required=False)
-parser.add_argument("--group_id", help="Group ID to use", required=False)
-parser.add_argument("--prompt", help="Prompt to use", required=False)
-parser.add_argument("--model", help="Model to use", required=False, default="gpt-4")
-
-parser.add_argument(
-    "--delimiter",
-    help="Delimiter to use when dumping prompts",
-    required=False,
-    default="\n\n",
-)
-
-parser.add_argument(
-    "--fake",
-    help="Generate fake prompt response data (mostly for testing)",
-    required=False,
-    default=False,
-    action=argparse.BooleanOptionalAction,
-)
-
-parser.add_argument(
-    "--to",
-    help="Where to transfer prompts",
-    choices=["metadata", "blocks"],
-    required=False,
-    default="metadata",
-)
-
-parser.add_argument(
-    "--metadata_key",
-    help="Name of metadata key; this will match the name in a prompt template",
-    required=False,
-)
+parser = define_arguments()
 
 args = parser.parse_args()
 
@@ -805,9 +784,6 @@ if args.action == "metadata":
 
 if args.action == "transfer-prompts":
     check_db(args.db)
-    if args.prompt_tag is None:
-        console.log("You must provide a --prompt_tag argument for the prompt tag")
-        exit(1)
     if args.to == "metadata" and args.metadata_key is None:
         console.log("You must provide a --metadata_key argument for the metadata key")
         exit(1)
