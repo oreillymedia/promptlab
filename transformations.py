@@ -62,3 +62,7 @@ def transformation_html2txt(b):
 
 def transformation_newline_split(b):
     return b.split("\n")
+
+
+def transformation_sentence_split(b):
+    return b.split(".")

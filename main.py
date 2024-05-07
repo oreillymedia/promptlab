@@ -22,6 +22,7 @@ import os
 from pathlib import Path
 from faker import Faker
 import yaml
+import json
 
 console = Console()
 fake = Faker()
@@ -51,6 +52,19 @@ def load_env():
     load_dotenv(home + "/" + ENV_FILENAME)
     console.log(f"Loaded API key from {home}/{ENV_FILENAME}")
     return True
+
+
+# Write the API key to the .promptlab file in the home directory
+def action_set_api_key():
+    console.log("Setting API key")
+    home = str(Path.home())
+    # get user input for api key
+    api_key = input("Enter your API key: ")
+    # write the key to the .promptlab file
+    console.log(f"Missing credentials in file {home}/{ENV_FILENAME}.")
+    with open(home + "/" + ENV_FILENAME, "w") as f:
+        f.write(f"API_KEY={api_key}")
+    console.log(f"API key set successfully and saved in {home}/{ENV_FILENAME}")
 
 
 # Loads a file eirher from the current directory or from the directory
@@ -327,12 +341,6 @@ def response_already_exists(prompt_text):
     return len(result) > 0
 
 
-def fetch_prompts():
-    sql = load_system_file("sql/v_current_prompts.sql")
-    sql = apply_where_clause(sql)
-    return fetch_from_db(sql, ())
-
-
 # *****************************************************************************************
 # Action groups
 # *****************************************************************************************
@@ -388,12 +396,13 @@ def action_transfer_prompts_to_blocks(prompt_tag):
     data = []
     for p in results:
         data.append(
-            {"block": p["response"], "tag": p["block_tag"], "parent_id": p["block_id"]}
+            {"block": p["response"], "tag": p["block_tag"], "parent_id": p["parent_id"]}
         )
     insert_blocks_in_new_group(data)
 
 
 def action_transform(transformation):
+    transformation = transformation.lower().strip()
     # Fetch the block or blocks to use
     headers, blocks = fetch_blocks()
     data = []
@@ -415,6 +424,8 @@ def action_transform(transformation):
                 result = transformation_html2txt(b["block"])
             case "new-line-split":
                 result = transformation_newline_split(b["block"])
+            case "sentence-split":
+                result = transformation_sentence_split(b["block"])
             case _:
                 raise Exception(f"Unknown transformation {args.transformation}")
         # If the result is a list, then create a block for each element
@@ -496,21 +507,37 @@ def action_filter():
     for b in blocks:
         console.log("Processing block", b["block_tag"])
         data.append(
-            {"block": b["block"], "tag": b["block_tag"], "parent_id": b["block_id"]}
+            {
+                "block": b["block"],
+                "tag": b["block_tag"],
+                "parent_id": b["parent_block_id"],
+            }
         )
     insert_blocks_in_new_group(data)
 
 
-def action_set_api_key():
-    console.log("Setting API key")
-    home = str(Path.home())
-    # get user input for api key
-    api_key = input("Enter your API key: ")
-    # write the key to the .promptlab file
-    console.log(f"Missing credentials in file {home}/{ENV_FILENAME}.")
-    with open(home + "/" + ENV_FILENAME, "w") as f:
-        f.write(f"API_KEY={api_key}")
-    console.log(f"API key set successfully and saved in {home}/{ENV_FILENAME}")
+def fetch_prompts():
+    sql = load_system_file("sql/v_current_prompts.sql")
+    sql = apply_where_clause(sql)
+    return fetch_from_db(sql, ())
+
+
+def action_merge_prompts_into_block():
+    sql = load_system_file("sql/v_current_prompts.sql")
+    sql = apply_where_clause(sql)
+    headers, results = fetch_from_db(sql, ())
+    # merge the results into single string , grouping by the parent_block column
+    merged_results = {}
+    for r in results:
+        if r["block_parent_id"] not in merged_results:
+            merged_results[r["block_parent_id"]] = []
+        merged_results[r["block_parent_id"]].append(r["response"])
+    out = []
+    tag = "merged_prompts"
+    for k in merged_results.keys():
+        new_block = get_delimiter().join(merged_results[k])
+        out.append({"block": new_block, "tag": tag, "parent_id": int(k)})
+    insert_blocks_in_new_group(out)
 
 
 # *****************************************************************************************
@@ -577,7 +604,7 @@ def action_dump_blocks():
 
 
 def action_dump_prompts():
-    prompts = fetch_prompts()
+    headers, prompts = fetch_prompts()
     # Pull out the block element into it's own list
     out = [p["response"] for p in prompts]
     console.print(get_delimiter().join(out))
@@ -588,31 +615,45 @@ def action_dump_prompts():
 # *****************************************************************************************
 def define_arguments():
 
+    ACTIONS = [
+        "init",
+        "load",
+        "load-prompts",
+        "dump-blocks",
+        "dump-prompts",
+        "transform",
+        "groups",
+        "blocks",
+        "prompt",
+        "prompts",
+        "prompt-log",
+        "set-group",
+        "version",
+        "set-api-key",
+        "transfer-prompts",
+        "filter",
+        "merge-prompts-into-block",
+    ]
+    TRANSFORMATIONS = [
+        "token-split",
+        "clean-epub",
+        "html-h1-split",
+        "html-h2-split",
+        "html2md",
+        "html2txt",
+        "new-line-split",
+        "sentence-split",
+    ]
+
     parser = argparse.ArgumentParser(
         description="Mangage prommpts across long blocks of text"
     )
     parser.add_argument(
         "action",
-        choices=[
-            "init",
-            "load",
-            "load-prompts",
-            "dump-blocks",
-            "dump-prompts",
-            "transform",
-            "groups",
-            "blocks",
-            "prompt",
-            "prompts",
-            "prompt-log",
-            "set-group",
-            "version",
-            "set-api-key",
-            "transfer-prompts",
-            "filter",
-        ],
+        choices=ACTIONS,
         help="The action to perform ",
     )
+
     # Universal arguments
     parser.add_argument(
         "--db", help="The database file", required=False, default="promptlab.db"
@@ -638,7 +679,7 @@ def define_arguments():
     # Arguments related to transformation operations
     parser.add_argument(
         "--transformation",
-        help="Transformation to use: token-split | clean-epub | html-h1-split | html-h2-split | html2md | html2txt | new-line-split",
+        help=f"Transformation to use ({','.join(TRANSFORMATIONS)})",
         required=False,
     )
     # Arguments related to tranferring data from prompts to metadata or blocks
@@ -708,7 +749,10 @@ if args.action == "transform":
     if args.transformation is None:
         console.log("You must provide a --transformation argument to use")
         sys.exit(1)
-    action_transform(args.transformation)
+    transformations = args.transformation.split(",")
+    for t in transformations:
+        console.log("Applying transformation", t)
+        action_transform(t)
 
 if args.action == "blocks":
     check_db(args.db)
@@ -801,4 +845,9 @@ if args.action == "filter":
         console.log("You must provide a --where clause for the filter")
         exit(1)
     action_filter()
+    sys.exit(0)
+
+if args.action == "merge-prompts-into-block":
+    check_db(args.db)
+    action_merge_prompts_into_block()
     sys.exit(0)

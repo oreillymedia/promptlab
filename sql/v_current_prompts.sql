@@ -2,9 +2,11 @@ SELECT
    pr.id as prompt_id,
    b.group_id,
    pr.block_id,
-   g.tag as group_tag,
-   b.tag block_tag,
-   pl.prompt_fn,
+   b.parent_id as block_parent_id,
+   g.tag as 
+   group_tag,
+   b.tag as block_tag,
+   pl.tag as prompt_tag,
    pr.response,
    pr.elapsed_time_in_seconds
  FROM
