@@ -1,9 +1,12 @@
-# v 0.2.0
+# v 0.2.1
 
 - [x] Move transformation scripts into codebase as functions
 - [x] single file binary with pyinstaller
-- redo argument parser
-- be able to load blocks from prompts (i.e., prompts table to blocks table)
+- [x] be able to load blocks from prompts (i.e., prompts table to blocks table)
+- [x] support for global metadata
+- [ ] filter blocks by metadata so that you can "compute" somehing with an LLM and then later filter by it (i.e., "is this block of text relevant to learning topic x")
+
+BREAKING CHANGE: removed transcript download functionality and will move this to a more powerful tool that can also download books and metadata. This was done to make the authenticaiton easier to manage.
 
 # v 0.1.1
 

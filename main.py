@@ -572,12 +572,12 @@ def action_groups():
     console.print(f"Current group_id: {get_current_group()}\n")
 
 
-def action_prompt_log(prompt_tag):
+def action_prompt_log():
     sql = load_system_file("sql/fetch_prompt_log.sql")
-    tag = convert_wildcard(prompt_tag) if prompt_tag is not None else "%"
-    console.log("Fetching prompt logs for tag", tag)
-    columns, results = fetch_from_db(sql, (tag,))
-    print_results("Prompt Logs", columns, results)
+    sql = apply_where_clause(sql)
+    headers, results = fetch_from_db(sql, ())
+    results = sorted(results, key=lambda d: d[headers[0]])
+    print_results("Prompt Logs", headers, results)
 
 
 def action_prompts():
@@ -618,20 +618,18 @@ def define_arguments():
     ACTIONS = [
         "init",
         "load",
-        "load-prompts",
-        "dump-blocks",
-        "dump-prompts",
         "transform",
+        "filter",
         "groups",
         "blocks",
+        "dump",
         "prompt",
         "prompts",
         "prompt-log",
+        "transfer-prompts",
         "set-group",
         "version",
         "set-api-key",
-        "transfer-prompts",
-        "filter",
         "merge-prompts-into-block",
     ]
     TRANSFORMATIONS = [
@@ -690,6 +688,14 @@ def define_arguments():
         required=False,
         default="metadata",
     )
+    # Arguments related to tranferring data from prompts to metadata or blocks
+    parser.add_argument(
+        "--source",
+        help="Source to dump from",
+        choices=["blocks", "prompts"],
+        required=False,
+        default="blocks",
+    )
     # Arguments related to metadata
     parser.add_argument(
         "--globals", help="Name of the file with global metadata", required=False
@@ -707,9 +713,9 @@ def define_arguments():
         default="\n\n",
     )
     # Things I'm not sure about anymore
-    parser.add_argument("--tag", help="Tag to filter on", required=False)
-    parser.add_argument("--block_id", help="Block ID to use", required=False)
-    parser.add_argument("--group_id", help="Group ID to use", required=False)
+    # parser.add_argument("--tag", help="Tag to filter on", required=False)
+    # parser.add_argument("--block_id", help="Block ID to use", required=False)
+    # parser.add_argument("--group_id", help="Group ID to use", required=False)
 
     return parser
 
@@ -731,17 +737,6 @@ if args.action == "load":
         console.log("You must provide a --fn argument for the file to read")
         exit(1)
     action_load()
-
-
-if args.action == "load-prompts":
-    check_db(args.db)
-    if args.fn is None:
-        console.log("You must provide a --fn argument for the file to read")
-        exit(1)
-    if args.prompt_tag is None:
-        console.log("You must provide a --prompt_tag argument for the prompt tag")
-        exit(1)
-    action_load_prompts(args.prompt_tag)
     sys.exit(0)
 
 if args.action == "transform":
@@ -750,9 +745,13 @@ if args.action == "transform":
         console.log("You must provide a --transformation argument to use")
         sys.exit(1)
     transformations = args.transformation.split(",")
+    if len(transformations) > 0 and args.group_tag is not None:
+        console.log("You cannot use --group_tag with multiple transformations")
+        sys.exit(1)
     for t in transformations:
         console.log("Applying transformation", t)
         action_transform(t)
+    sys.exit(0)
 
 if args.action == "blocks":
     check_db(args.db)
@@ -764,15 +763,17 @@ if args.action == "groups":
     action_groups()
     sys.exit(0)
 
-if args.action == "dump-blocks":
+if args.action == "dump":
     check_db(args.db)
-    action_dump_blocks()
+    if args.source is None:
+        console.log("You must provide a --source argument for the source")
+        sys.exit(1)
+    if args.source == "blocks":
+        action_dump_blocks()
+    elif args.source == "prompts":
+        action_dump_prompts()
     sys.exit(0)
 
-if args.action == "dump-prompts":
-    check_db(args.db)
-    action_dump_prompts()
-    sys.exit(0)
 
 if args.action == "prompt":
     check_db(args.db)
@@ -806,7 +807,7 @@ if args.action == "prompts":
 
 if args.action == "prompt-log":
     check_db(args.db)
-    action_prompt_log(args.prompt_tag)
+    action_prompt_log()
     sys.exit(0)
 
 
