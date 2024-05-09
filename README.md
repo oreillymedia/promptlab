@@ -1,36 +1,62 @@
 # Promptlab
 
-Promptlab is a utility for scripting common activities when working with large amounts of text with an LLM.
+Promptlab is a utility for managing common activities when processing large amounts of text with an LLM. It lets you:
+
+- Load text from files or EPUBs into a database
+- Transform text using a variety of transformations. For example, convert an EPUB to markdown, split a long block into smaller blocks, or split a block into sentences. A lot of this work is required to fit the text into the LLM's token limit.
+- Filter out blocks of text. For example, you might only want to process one chapter in a book.
+- Apply templated prompts to your blocks and send them to an LLM. You can use metadata in your prompts to make them more dynamic. For example, you might have a metadata file with keys like `title`, `author`, and `topic`. You can include these keys in your prompt templates.
+
+Propmptlab helps you massage text into blocks that can be fed into an LLM using a [Jinja](https://jinja.palletsprojects.com/) template. This template contains the text of your prompt, along with variables that get passed in from the block. For example, you might have a template like this with three variables -- a topic, a title, an authos, and a block of text:
 
 ```
+You are a technical instructional designer who is reviewing
+a book about {{topic}} called {{title}} by {{author}}.  Your job is to
+summarize the key points in each section.  Here is some text in
+markdown format for you to use summarize:
 
-You are a technical instructional designer who is reviewing a book about {{topic}} called {{title}}.  You're job is to create a set of learning objectives.  Here is some text in markdown format for you to use to complete the learning objectives; be sure to format them as a bullet list ("\*") and not numbers:
-
-===========================================================
 {{block}}
-===========================================================
-
 ```
 
-It has functions for:
+You supply the metadata in a YAML file, like this:
 
-- loading text from files or EPUBs
-- transforming text using a variety of transformations
-- filtering blocks
-- appplying prompts to blocks
-- managing metadata for prompts
+```
+title: Fooing the Bar
+topic: Python Programming
+author: A. N. Other
+```
 
-Promptlab has a few key concepts:
+When you run the `prompt` command in Promptlab, a block of text and the metadata is passed into the template:
 
-- _Blocks_. Blocks of text of any length or format (text, HTML, markdown, etc).
+```
+You are a technical instructional designer who is reviewing
+a book about Python Programming called Fooing the Bar by A. N. Other.
+Your job is to summarize the key points in each section.  Here is
+some text in markdown format for you to use summarize:
 
-- _Groups_. A group of blocks created by running a script. Examples include: transforming text from one format to another (e.g., HTML to Markdown) or splitting a long block into several smaller ones (e.g. breaking a long HTML into sections hased on heading tags like H1 or H2). Some scripts are included in the repo, but users can also write their own.
+<A BLOCK OF TEXT FROM PROMPTLAB>
+```
 
-- _Prompts_. The result from a prompt template applied against a block and sent to OpenAI's LLM. Promptlab combines your template (in Jinija2 format) with the given block, sends it to the LLM, and stores the result.
+This fully rendered text is sent to an LLM for completion. The process is repeated for the other blocks of content until all the sections you select are processed. You can then convert these resposes into new blocks or metadata, or just dump them out an save them in a file.
 
-- _Metadata_. Metadata is a set of key-value pairs that can be used in prompts. For example, you might have a metadata file with keys like `title`, `author`, and `topic`. You can include these keys in your prompt templates. Metadata can be included in prompts using the `--globals` option.
+Finally, Promptlab can be used as part of a script to automate the process of generating prompts and responses. For example, here's an example of how tou might summarize the full contents of a book:
 
-Promptlab uses [SQLite3](https://www.sqlite.org/index.html) as the database. The database is created automatically when you run `init`. You can use the [SQLite3 command line tool](https://www.sqlite.org/cli.html) to inspect the database directly or use a GUI like [DB Browser for SQLite](https://sqlitebrowser.org/).
+```bash
+# Create a new database
+promptlab init
+# Load the epub
+promptlab load --fn=book.epub
+# Apply a filter to only work on chapter
+promptlab filter --where="block_tag like 'ch%'"
+# Clean up the extraneous HTML, split the text into sections, and convert to markdown
+promptlab transform --transformation="clean-epub, html-h1-split, html2md"
+# Only work on sections with more than 1000 tokens
+promptlab filter --where="token_count > 1000" --group_tag=key-sections
+# Apply the summarization template using the metadata in metadata.yml
+promptlab prompt --fn=summarize.jinja --globals=metadata.yml
+# Write the results to a file
+promptlab dump --source=prompts > key-points.md
+```
 
 # Installation
 
@@ -255,7 +281,7 @@ Generate prompts from a set of blocks based on metadata and a template, and then
 
 - `--prompt` (required) The name of the prompt template.
 - `--where` (optional) A SQL WHERE clause to filter the blocks that will be used to create the prompts.
-- `--model` (optional) The name of the openAI model to use. Defaults to gpt-4. You can see a list of models [here]https://platform.openai.com/docs/models/overview).
+- `--model` (optional) The name of the openAI model to use. Defaults to gpt-4. You can see a list of models [here](https://platform.openai.com/docs/models/overview).
 - `--prompt_tag` (optional) A tag to use for the prompt.
 - `--globals` (optional) A YAML file with global metadata values that can be used in the prompt template.
 - `--fake` (optional) Generates a fake response data (mostly for testing)
