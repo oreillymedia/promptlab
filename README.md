@@ -61,7 +61,7 @@ Creates an empty database. If no db is provided, the default is `promptlab.db`.
 
 ### Arguments
 
-`--db` (optional) The name of the database file. Default is `promptlab.db`.
+- `--db` (optional) The name of the database file. Default is `promptlab.db`.
 
 ### Examples
 
@@ -75,8 +75,8 @@ Loads a file or files into a new group, each of which contains a set of blocks. 
 
 ### Arguments
 
-`--fn` (required) The name of the file to load.
-`--group_tag` (optional) The tag of the group to create
+- `--fn` (required) The name of the file to load.
+- `--group_tag` (optional) The tag of the group to create
 
 ### Examples
 
@@ -136,8 +136,8 @@ The `filter` command creates a new group of blocks by applying a filter to the c
 
 ### Arguments
 
-`--where` (required) A SQL WHERE clause to filter the blocks in the current group.
-`--group_tag` (optional) The tag to use for the new group.
+- `--where` (required) A SQL WHERE clause to filter the blocks in the current group.
+- `--group_tag` (optional) The tag to use for the new group.
 
 ### Examples
 
@@ -159,7 +159,7 @@ Lists all groups.
 
 ### Arguments
 
-`--where` (optional) A SQL WHERE clause to filter the results
+- `--where` (optional) A SQL WHERE clause to filter the results
 
 ### Examples
 
@@ -195,7 +195,7 @@ List all blocks in the current group:
 
 ### Arguments
 
-`--where` (optional) A SQL WHERE clause to filter the results. Running `promplab blocks` will show the columns available for filtering. These are currently `['block_id', 'block_tag', 'parent_block_id', 'group_id', 'group_tag', 'block', 'token_count']`
+- `--where` (optional) A SQL WHERE clause to filter the results. Running `promplab blocks` will show the columns available for filtering. These are currently `['block_id', 'block_tag', 'parent_block_id', 'group_id', 'group_tag', 'block', 'token_count']`
 
 ### Examples
 
@@ -223,9 +223,9 @@ Write blocks or prompts to standard output.
 
 ### Arguments
 
-`--where` (optional) A SQL WHERE clause to filter the results. Running `promplab blocks` will show the columns available for filtering. These are currently `['block_id', 'block_tag', 'parent_block_id', 'group_id', 'group_tag', 'block', 'token_count']`
-`--source` (required) The source to dump. Options are `blocks` or `prompts`.
-`--delimiter` (optional) The delimiter to use when joining the blocks. Default is a newline.
+- `--source` (required) The source to dump. Options are `blocks` or `prompts`.
+- `--where` (optional) A SQL WHERE clause to filter the results. Running `promplab blocks` will show the columns available for filtering. These are currently `['block_id', 'block_tag', 'parent_block_id', 'group_id', 'group_tag', 'block', 'token_count']`
+- `--delimiter` (optional) The delimiter to use when joining the blocks. Default is a newline.
 
 ### Examples
 
@@ -253,12 +253,12 @@ Generate prompts from a set of blocks based on metadata and a template, and then
 
 ### Arguments
 
-`--prompt` (required) The name of the prompt template.
-`--where` (optional) A SQL WHERE clause to filter the blocks that will be used to create the prompts.
-`--model` (optional) The name of the openAI model to use. Defaults to gpt-4. You can see a list of models [here]https://platform.openai.com/docs/models/overview).
-`--prompt_tag` (optional) A tag to use for the prompt.
-`--globals` (optional) A YAML file with global metadata values that can be used in the prompt template.
-`--fake` (optional) Generates a fake response data (mostly for testing)
+- `--prompt` (required) The name of the prompt template.
+- `--where` (optional) A SQL WHERE clause to filter the blocks that will be used to create the prompts.
+- `--model` (optional) The name of the openAI model to use. Defaults to gpt-4. You can see a list of models [here]https://platform.openai.com/docs/models/overview).
+- `--prompt_tag` (optional) A tag to use for the prompt.
+- `--globals` (optional) A YAML file with global metadata values that can be used in the prompt template.
+- `--fake` (optional) Generates a fake response data (mostly for testing)
 
 ### Examples
 
@@ -286,7 +286,7 @@ Prints all prompts to standard output.
 
 ### Arguments
 
-`--where` (optional) A SQL WHERE clause to filter the results. Running `promplab prompts` will show the columns available for filtering. These are currently `['prompt_id', 'block_id', 'prompt', 'response', 'model', 'prompt_tag', 'created_at']`
+- `--where` (optional) A SQL WHERE clause to filter the results. Running `promplab prompts` will show the columns available for filtering. These are currently `['prompt_id', 'block_id', 'prompt', 'response', 'model', 'prompt_tag', 'created_at']`
 
 ### Examples
 
@@ -308,9 +308,9 @@ Convert prompts into blocks or metadata. This is useful is you want to do later 
 
 ### Arguments
 
-`--where` (optional) A SQL WHERE clause to filter the results. Running `promplab transfer-prompts` will show the columns available for filtering. These are currently `['prompt_id', 'block_id', 'prompt', 'response', 'model', 'prompt_tag', 'created_at']`
-`--to` (required) The type of object to transfer the prompts to. Options are `blocks` or `metadata`.
-`--metadata_key` (optional) The key to use for the metadata. Only valid when `--to=metadata`.
+- `--where` (optional) A SQL WHERE clause to filter the results. Running `promplab transfer-prompts` will show the columns available for filtering. These are currently `['prompt_id', 'block_id', 'prompt', 'response', 'model', 'prompt_tag', 'created_at']`
+- `--to` (required) The type of object to transfer the prompts to. Options are `blocks` or `metadata`.
+- `--metadata_key` (optional) The key to use for the metadata. Only valid when `--to=metadata`.
 
 ### Examples
 
