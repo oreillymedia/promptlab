@@ -10,4 +10,5 @@ build
 .env.old
 *.sqbpro
 .DS_Store
+promptlab.spec
 __pycache__/

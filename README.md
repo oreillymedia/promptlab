@@ -7,7 +7,7 @@ Promptlab is a utility for managing common activities when processing large amou
 - Filter out blocks of text. For example, you might only want to process one chapter in a book.
 - Apply templated prompts to your blocks and send them to an LLM. You can use metadata in your prompts to make them more dynamic. For example, you might have a metadata file with keys like `title`, `author`, and `topic`. You can include these keys in your prompt templates.
 
-Propmptlab helps you massage text into smaller blocks that can be fed into an LLM using a [Jinja](https://jinja.palletsprojects.com/) template. This template contains the text of your prompt, along with variables that get passed in from the block. For example, you might have a template like this with three variables -- a topic, a title, an authos, and a block of text:
+Propmptlab helps you massage text into smaller blocks that can be fed into an LLM using a [Jinja](https://jinja.palletsprojects.com/) template. This template contains the text of your prompt, along with variables that get passed in from the block. For example, you might have a template like this with three variables -- a topic, a title, an author, and a block of text:
 
 ```
 You are a technical instructional designer who is reviewing
@@ -42,6 +42,8 @@ This fully rendered text is sent to an LLM for completion. The process is repeat
 Finally, Promptlab can be used as part of a script to automate the process of generating prompts and responses. For example, here's an example of how tou might summarize the full contents of a book:
 
 ```bash
+# Make sure the bash script exits if any command fails
+set -e
 # Create a new database
 promptlab init
 # Load the epub
@@ -67,6 +69,22 @@ promptlab version
 ```
 
 Note that it's pretty slow to start. This is an artifact of the way Pyinstaller works when it builds a single file for distribution. Once it's running, it's pretty fast. I should probably make a REPL for it.
+
+# Usage
+
+- Create a directory to hold your content. For example, you might download an EPUB or some files there.
+- Run `promptlab init` to create a new database. This will create a SQLITE database called `promptlab.db` in the current directory (unless you override the name with the `--db` option).
+- Load the content into the database with `promptlab load --fn=*.epub`. This will create a new group with blocks for each chapter in the EPUB.
+
+At this point, you might need to poke around a bit in the data to figure out how it's structured. You can use the `dump` command to inspect the blocks. Once you have an idea of how it looks, you can use the various transformations to clean up the data and split it into smaller blocks that will fit into the LLM's context window, which is typically around 8192 tokens. For example, you might use the `html-h1-split` transformation to split the text into blocks based on the H1 tags in the HTML.
+
+Finally, you might also want to restrict the blocks you're working with to a subset of the data. You can use the `filter` command to do this. For example, you might only want to work with blocks that have more than 1000 tokens.
+
+Next, you can start creating prompt templates. These should be Jinja templates that include the text of the prompt and any metadata you want to include. When you run the `prompt` command, you'll pass in the name of the template and the metadata file, and each block in the set you supply will be passed into the template in the `{{block}}` variable. The fully rendered prompt will be sent to the LLM for completion.
+
+Finally, you can use the `dump` command to write the results to a file, or transfer them into other blocks or metadata.
+
+Once you've found the right set of transformations and filters, you can script the whole process to automate the generation of prompts and responses and save it as a bash script.
 
 # Command Reference
 
@@ -398,6 +416,14 @@ To deactivate:
 ```
 deactivate
 ```
+
+## Install the requirements
+
+```
+pip install -r requirements.txt
+```
+
+I've noticed that sometimes `pyinstaller` doesn't pick up these packages unless you also run them in the global environment where Python is installed, rather than in the virtual environment. I'm not sure why this is, but it's something to keep in mind.
 
 ## Building standalone executable
 
