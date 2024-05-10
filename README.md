@@ -72,19 +72,21 @@ Note that it's pretty slow to start. This is an artifact of the way Pyinstaller 
 
 # Usage
 
+Promptlab is meant to help you explore the vairous transformations and prompts required to transform large amounts of content (like, a book). Here's a pretty typical way you might start a new project:
+
 - Create a directory to hold your content. For example, you might download an EPUB or some files there.
 - Run `promptlab init` to create a new database. This will create a SQLITE database called `promptlab.db` in the current directory (unless you override the name with the `--db` option).
 - Load the content into the database with `promptlab load --fn=*.epub`. This will create a new group with blocks for each chapter in the EPUB.
 
-At this point, you might need to poke around a bit in the data to figure out how it's structured. You can use the `dump` command to inspect the blocks. Once you have an idea of how it looks, you can use the various transformations to clean up the data and split it into smaller blocks that will fit into the LLM's context window, which is typically around 8192 tokens. For example, you might use the `html-h1-split` transformation to split the text into blocks based on the H1 tags in the HTML.
-
-Finally, you might also want to restrict the blocks you're working with to a subset of the data. You can use the `filter` command to do this. For example, you might only want to work with blocks that have more than 1000 tokens.
+At this point, you might need to poke around a bit in the data to figure out how it's structured. You can use the `dump` command to inspect the blocks. Once you have an idea of how it looks, you can use the various transformations to clean up the data and split it into smaller blocks that will fit into the LLM's context window, which is typically around 8192 tokens. For example, you might use the `html-h1-split` transformation to split the text into blocks based on the H1 tags in the HTML. Finally, you might also want to restrict the blocks you're working with to a subset of the data. You can use the `filter` command to do this. For example, you might only want to work with blocks that have more than 1000 tokens.
 
 Next, you can start creating prompt templates. These should be Jinja templates that include the text of the prompt and any metadata you want to include. When you run the `prompt` command, you'll pass in the name of the template and the metadata file, and each block in the set you supply will be passed into the template in the `{{block}}` variable. The fully rendered prompt will be sent to the LLM for completion.
 
 Finally, you can use the `dump` command to write the results to a file, or transfer them into other blocks or metadata.
 
 Once you've found the right set of transformations and filters, you can script the whole process to automate the generation of prompts and responses and save it as a bash script.
+
+Note that promptlab isn't meant to be a production tool -- it's mostly for exploratoy work to figure out how to structure your data and what prompts are effective for whatever you're trying to do. Once you've figured that out, it's likely that you would want to condense those operations into a single program that you can run at scale
 
 # Command Reference
 
