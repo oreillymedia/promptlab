@@ -7,7 +7,7 @@ Promptlab is a utility for managing common activities when processing large amou
 - Filter out blocks of text. For example, you might only want to process one chapter in a book.
 - Apply templated prompts to your blocks and send them to an LLM. You can use metadata in your prompts to make them more dynamic. For example, you might have a metadata file with keys like `title`, `author`, and `topic`. You can include these keys in your prompt templates.
 
-Propmptlab helps you massage text into blocks that can be fed into an LLM using a [Jinja](https://jinja.palletsprojects.com/) template. This template contains the text of your prompt, along with variables that get passed in from the block. For example, you might have a template like this with three variables -- a topic, a title, an authos, and a block of text:
+Propmptlab helps you massage text into smaller blocks that can be fed into an LLM using a [Jinja](https://jinja.palletsprojects.com/) template. This template contains the text of your prompt, along with variables that get passed in from the block. For example, you might have a template like this with three variables -- a topic, a title, an authos, and a block of text:
 
 ```
 You are a technical instructional designer who is reviewing
@@ -20,7 +20,7 @@ markdown format for you to use summarize:
 
 You supply the metadata in a YAML file, like this:
 
-```
+```yml
 title: Fooing the Bar
 topic: Python Programming
 author: A. N. Other
@@ -28,13 +28,13 @@ author: A. N. Other
 
 When you run the `prompt` command in Promptlab, a block of text and the metadata is passed into the template:
 
-```
+```jinja
 You are a technical instructional designer who is reviewing
 a book about Python Programming called Fooing the Bar by A. N. Other.
 Your job is to summarize the key points in each section.  Here is
 some text in markdown format for you to use summarize:
 
-<A BLOCK OF TEXT FROM PROMPTLAB>
+<BLOCK OF TEXT>
 ```
 
 This fully rendered text is sent to an LLM for completion. The process is repeated for the other blocks of content until all the sections you select are processed. You can then convert these resposes into new blocks or metadata, or just dump them out an save them in a file.
@@ -75,11 +75,10 @@ Promptlab has the following commands:
 - `set-group` -- set the current group
 - `prompt` -- generate prompts from a set of blocks based on metadata and a template
 - `prompts` -- list all prompts
-- `transfer-prompts`
-- `merge-prompts-into-block`
-- `version`
-- `set-api-key`
-- `dump`
+- `transfer-prompts` -- convert prompts into blocks or metadata
+- `version` - show the version of the software
+- `set-api-key` - set the api key used for the LLM
+- `dump` - write blocks or prompts to standard output
 
 ## `init`
 
@@ -352,45 +351,51 @@ Transfer prompts to metadata:
 promptlab transfer-prompts --to=metadata --metadata_key=key-points
 ```
 
-## Metadata
+## `version`
 
-### Global metadata
+Prints the version of the software.
 
-A file of metadata values you want to use:
-
-```
-
-title: Designing Data Intensive Applications
-topic: data science
-author: Some dude
+### Examples
 
 ```
-
-These keys can then be used in a template, like this:
-
+promptlab version
 ```
 
-{{title}}
+## `set-api-key`
 
-Has the topic {{topic}} written by {{author}}.
+Sets the API key used for the LLM. This is required to use the `prompt` command. NB: This key is stored in plain text in a file called `~/.promptlab`.
 
-{{block}}
-
-```
-
-You include the metadata file using the `--globals` when your create your prompts:
+### Examples
 
 ```
-
-promptlab prompt --fn=myprompt.jinja --globals=data.yml
-
+promptlab set-api-key
 ```
 
 # Development
 
+This section is a little light right now since this is a single person project. I should probably write some tests, for example....
+
+## Set up the environment
+
+```
+python -m venv .venv
+```
+
+To activate:
+
+```
+source .venv/bin/activate
+```
+
+To deactivate:
+
+```
+deactivate
+```
+
 ## Building standalone executable
 
-First, be sure you're set up to run pyinstaller by reading [Build an executable with pyinstaller](http://www.gregreda.com/2023/05/18/notes-on-using-pyinstaller-poetry-and-pyenv/). This is another good [tutorial on pyinstaller](https://www.devdungeon.com/content/pyinstaller-tutorial).
+First, be sure you're set up to run pyinstaller by reading [Build an executable with pyinstaller](http://www.gregreda.com/2023/05/18/notes-on-using-pyinstaller-poetry-and-pyenv/). This is another good [tutorial on pyinstaller](https://www.devdungeon.com/content/pyinstaller-tutorial). It took a bit of finagling to make this work, so YMMV.
 
 From the root directory, run the following command:
 
@@ -400,29 +405,5 @@ pyinstaller -F \
  --name=promptlab \
  --add-data="sql:sql" \
  main.py
-
-```
-
-# venv
-
-```
-
-python -m venv .venv
-
-```
-
-To activate:
-
-```
-
-source .venv/bin/activate
-
-```
-
-To deactivate:
-
-```
-
-deactivate
 
 ```
