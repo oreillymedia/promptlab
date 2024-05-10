@@ -60,7 +60,13 @@ promptlab dump --source=prompts > key-points.md
 
 # Installation
 
-Promptlab uses Pyinstaller to create a single executable file. You can download the latest release from [PUT MORE HERE]
+Promptlab uses Pyinstaller to create a single executable file. To install it, [download the latest release](https://github.com/oreillymedia/promptlab/releases) and put it somewhere in your path. To test that it's working correctly, run:
+
+```
+promptlab version
+```
+
+Note that it's pretty slow to start. This is an artifact of the way Pyinstaller works when it builds a single file for distribution. Once it's running, it's pretty fast. I should probably make a REPL for it.
 
 # Command Reference
 
