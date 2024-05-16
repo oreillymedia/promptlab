@@ -65,4 +65,11 @@ def transformation_newline_split(b):
 
 
 def transformation_sentence_split(b):
-    return b.split(".")
+    out = b.split(".")
+    # Remove empty strings
+    out = list(filter(None, out))
+    # Trim the strings
+    out = [x.strip() for x in out]
+    # Add period to the end of each sentence
+    out = [x + "." for x in out]
+    return out
