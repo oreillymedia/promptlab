@@ -62,7 +62,9 @@ promptlab dump --source=prompts > key-points.md
 
 # Installation
 
-Promptlab uses Pyinstaller to create a single executable file. To install it, [download the latest release](https://github.com/oreillymedia/promptlab/releases) and put it somewhere in your path. To test that it's working correctly, run:
+Promptlab uses Pyinstaller to create a single executable file. To install it, [download the latest release](https://github.com/oreillymedia/promptlab/releases) and put it somewhere in your path. You will likely also need to [enable it to run on a mac by changing the permissions](https://iboysoft.com/howto/cannot-be-opened-because-it-is-from-an-unidentified-developer.html).
+
+To test that it's working correctly, run:
 
 ```
 promptlab version
