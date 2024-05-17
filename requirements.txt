@@ -8,6 +8,7 @@ markdownify
 markdown
 openai==0.28
 rich
-python-slugify
 Faker
 pyyaml
+art
+prompt_toolkit

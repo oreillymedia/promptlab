@@ -16,21 +16,52 @@ import openai
 import hashlib
 import logging
 import glob
-from slugify import slugify
 from transformations import *
 import os
 from pathlib import Path
 from faker import Faker
 import yaml
-import json
+from prompt_toolkit import PromptSession
+import shlex
+from art import text2art
+import sys
+
 
 console = Console()
 fake = Faker()
 log = logging.getLogger("rich")
 
-VERSION = "0.2.1"
+VERSION = "0.3.0"
 
 ENV_FILENAME = ".promptlab"
+
+ACTIONS = [
+    "init",
+    "load",
+    "transform",
+    "filter",
+    "groups",
+    "blocks",
+    "dump",
+    "prompt",
+    "prompts",
+    "prompt-log",
+    "transfer-prompts",
+    "set-group",
+    "version",
+    "set-api-key",
+    "merge-prompts-into-block",
+]
+TRANSFORMATIONS = [
+    "token-split",
+    "clean-epub",
+    "html-h1-split",
+    "html-h2-split",
+    "html2md",
+    "html2txt",
+    "new-line-split",
+    "sentence-split",
+]
 
 
 # *****************************************************************************************
@@ -41,7 +72,7 @@ def check_db(fn):
     if not os.path.isfile(fn):
         console.log(f"Database file {fn} does not exist.")
         console.log("Check the filename or run init to create a new database.")
-        exit(1)
+        raise Exception(f"Database file {fn} does not exist.")
 
 
 # Check if the .promptlab file exists in the home directory
@@ -155,7 +186,7 @@ def fetch_from_db(sql, tuple):
         console.log(" ".join(sys.argv))
         console.log("SQL used in this request is:\n\n", sql)
         console.log(f"\nThe following error occurred:\n\n[red]{e}[/red]\n")
-        sys.exit(1)
+        raise Exception("An error occurred on this request")
 
 
 def print_results(title, column_names, results):
@@ -244,8 +275,7 @@ def get_group_id_by_tag():
     try:
         return results[0]["id"]
     except:
-        console.log("[red]Group not found[/red]")
-        sys.exit(1)
+        raise Exception("Group not found")
 
 
 # *****************************************************************************************
@@ -613,35 +643,7 @@ def action_dump_prompts():
 # *****************************************************************************************
 # Define commandline arguments and flags
 # *****************************************************************************************
-def define_arguments():
-
-    ACTIONS = [
-        "init",
-        "load",
-        "transform",
-        "filter",
-        "groups",
-        "blocks",
-        "dump",
-        "prompt",
-        "prompts",
-        "prompt-log",
-        "transfer-prompts",
-        "set-group",
-        "version",
-        "set-api-key",
-        "merge-prompts-into-block",
-    ]
-    TRANSFORMATIONS = [
-        "token-split",
-        "clean-epub",
-        "html-h1-split",
-        "html-h2-split",
-        "html2md",
-        "html2txt",
-        "new-line-split",
-        "sentence-split",
-    ]
+def define_arguments(argString=None):
 
     parser = argparse.ArgumentParser(
         description="Mangage prommpts across long blocks of text"
@@ -661,15 +663,13 @@ def define_arguments():
     # Arguments related to naming or fetching blocks, prompts, etc.
     parser.add_argument("--group_tag", help="Tag to filter on", required=False)
     parser.add_argument("--prompt_tag", help="Tag to filter on", required=False)
-    parser.add_argument(
-        "--where", help="SQLITE Where clause to use to select blocks", required=False
-    )
+    parser.add_argument("--where", help="SQLITE where clause", required=False)
     # Arguments related to prompting
     parser.add_argument("--prompt", help="Prompt to use", required=False)
     parser.add_argument("--model", help="Model to use", required=False, default="gpt-4")
     parser.add_argument(
         "--fake",
-        help="Generate fake prompt response data (mostly for testing)",
+        help="Generate fake prompt response data",
         required=False,
         default=False,
         action=argparse.BooleanOptionalAction,
@@ -712,143 +712,148 @@ def define_arguments():
         required=False,
         default="\n\n",
     )
-    # Things I'm not sure about anymore
-    # parser.add_argument("--tag", help="Tag to filter on", required=False)
-    # parser.add_argument("--block_id", help="Block ID to use", required=False)
-    # parser.add_argument("--group_id", help="Group ID to use", required=False)
 
-    return parser
+    if argString:
+        return parser.parse_args(shlex.split(argString))
+    else:
+        return parser.parse_args()
 
 
 # *****************************************************************************************
 
-parser = define_arguments()
 
-args = parser.parse_args()
+def process_command():
+    if args.action == "init":
+        action_init()
+        return
 
-if args.action == "init":
-    action_init()
-    console.log("Initialized database")
-    sys.exit(0)
+    if args.action == "load":
+        check_db(args.db)
+        if args.fn is None:
+            raise Exception("You must provide a --fn argument for the file to load")
+        action_load()
+        return
 
-if args.action == "load":
-    check_db(args.db)
-    if args.fn is None:
-        console.log("You must provide a --fn argument for the file to read")
-        exit(1)
-    action_load()
-    sys.exit(0)
+    if args.action == "transform":
+        check_db(args.db)
+        if args.transformation is None:
+            raise Exception("You must provide a --transformation argument to use")
+        transformations = args.transformation.split(",")
+        if len(transformations) > 0 and args.group_tag is not None:
+            raise Exception("You cannot use --group_tag with multiple transformations")
+        for t in transformations:
+            console.log("Applying transformation", t)
+            action_transform(t)
+        return
 
-if args.action == "transform":
-    check_db(args.db)
-    if args.transformation is None:
-        console.log("You must provide a --transformation argument to use")
-        sys.exit(1)
-    transformations = args.transformation.split(",")
-    if len(transformations) > 0 and args.group_tag is not None:
-        console.log("You cannot use --group_tag with multiple transformations")
-        sys.exit(1)
-    for t in transformations:
-        console.log("Applying transformation", t)
-        action_transform(t)
-    sys.exit(0)
+    if args.action == "blocks":
+        check_db(args.db)
+        action_blocks()
+        return
 
-if args.action == "blocks":
-    check_db(args.db)
-    action_blocks()
-    sys.exit(0)
+    if args.action == "groups":
+        check_db(args.db)
+        action_groups()
+        return
 
-if args.action == "groups":
-    check_db(args.db)
-    action_groups()
-    sys.exit(0)
+    if args.action == "dump":
+        check_db(args.db)
+        if args.source is None:
+            raise Exception("You must provide a --source argument for the source")
+        if args.source == "blocks":
+            action_dump_blocks()
+        elif args.source == "prompts":
+            action_dump_prompts()
+        return
 
-if args.action == "dump":
-    check_db(args.db)
-    if args.source is None:
-        console.log("You must provide a --source argument for the source")
-        sys.exit(1)
-    if args.source == "blocks":
-        action_dump_blocks()
-    elif args.source == "prompts":
-        action_dump_prompts()
-    sys.exit(0)
+    if args.action == "prompt":
+        check_db(args.db)
+        console.log(args.fn)
+        if args.fn is None:
+            raise Exception("You must provide a --fn argument for the prompt")
+        if load_env() is False:
+            action_set_api_key()
+            load_env()
+        action_prompt(args.fn)
+        return
 
+    if args.action == "set-group":
+        check_db(args.db)
+        if args.group_tag is None:
+            raise Exception("You must provide a --group_tag argument for the group")
+        group_id = get_group_id_by_tag()
+        conn = sqlite3.connect(args.db)
+        c = conn.cursor()
+        set_group(c, group_id)
+        conn.commit()
+        conn.close()
+        console.log(f"Group set to {(group_id, args.group_tag)}")
 
-if args.action == "prompt":
-    check_db(args.db)
-    console.log(args.fn)
-    if args.fn is None:
-        console.log("You must provide a --fn argument for the prompt")
-        sys.exit(1)
-    if load_env() is False:
+    if args.action == "prompts":
+        check_db(args.db)
+        action_prompts()
+        return
+
+    if args.action == "prompt-log":
+        check_db(args.db)
+        action_prompt_log()
+        return
+
+    if args.action == "version":
+        console.log("Version", VERSION)
+        return
+
+    if args.action == "set-api-key":
         action_set_api_key()
-        load_env()
-    action_prompt(args.fn)
-    sys.exit(0)
+        return
 
-if args.action == "set-group":
-    check_db(args.db)
-    if args.group_tag is None:
-        console.log("You must provide a --group_tag argument for the group")
-        exit(1)
-    group_id = get_group_id_by_tag()
-    conn = sqlite3.connect(args.db)
-    c = conn.cursor()
-    set_group(c, group_id)
-    conn.commit()
-    conn.close()
-    console.log(f"Group set to {(group_id, args.group_tag)}")
+    if args.action == "transfer-prompts":
+        check_db(args.db)
+        if args.to == "metadata" and args.metadata_key is None:
+            raise Exception("You must provide a --metadata_key")
+        if args.to == "metadata":
+            action_transfer_prompts_to_metadata(args.prompt_tag, args.metadata_key)
+        elif args.to == "blocks":
+            action_transfer_prompts_to_blocks(args.prompt_tag)
+        else:
+            raise Exception("Unknown transfer target", args.to)
 
-if args.action == "prompts":
-    check_db(args.db)
-    action_prompts()
-    sys.exit(0)
+    if args.action == "filter":
+        check_db(args.db)
+        if args.where is None:
+            raise Exception("You must provide a --where clause for the filter")
+        action_filter()
+        return
 
-if args.action == "prompt-log":
-    check_db(args.db)
-    action_prompt_log()
-    sys.exit(0)
+    if args.action == "merge-prompts-into-block":
+        check_db(args.db)
+        action_merge_prompts_into_block()
+        return
 
 
-if args.action == "version":
-    console.log("Version", VERSION)
-    sys.exit(0)
+if __name__ == "__main__":
 
-if args.action == "set-api-key":
-    action_set_api_key()
-    sys.exit(0)
-
-if args.action == "metadata":
-    if args.globals is None:
-        console.log("You must provide a --globals argument for the metadata file")
-        sys.exit(1)
-    metadata = read_metadata(args.globals)
-    console.log(metadata)
-    sys.exit(0)
-
-if args.action == "transfer-prompts":
-    check_db(args.db)
-    if args.to == "metadata" and args.metadata_key is None:
-        console.log("You must provide a --metadata_key argument for the metadata key")
-        exit(1)
-    if args.to == "metadata":
-        action_transfer_prompts_to_metadata(args.prompt_tag, args.metadata_key)
-    elif args.to == "blocks":
-        action_transfer_prompts_to_blocks(args.prompt_tag)
+    if len(sys.argv) > 1:
+        args = define_arguments()
+        try:
+            process_command()
+        except Exception as e:
+            console.log("[red]An error occurred on this request[/red]")
+            console.log(" ".join(sys.argv))
+            console.log(f"\nThe following error occurred:\n\n[red]{e}[/red]\n")
+            sys.exit(1)
     else:
-        console.log("Unknown transfer target", args.to)
-        sys.exit(1)
-
-if args.action == "filter":
-    check_db(args.db)
-    if args.where is None:
-        console.log("You must provide a --where clause for the filter")
-        exit(1)
-    action_filter()
-    sys.exit(0)
-
-if args.action == "merge-prompts-into-block":
-    check_db(args.db)
-    action_merge_prompts_into_block()
-    sys.exit(0)
+        Art = text2art("Promptlab")
+        print(f"[green]{Art}")
+        session = PromptSession()
+        while True:
+            argString = session.prompt("promptlab> ")
+            if argString == "exit":
+                break
+            try:
+                args = define_arguments(argString)
+                process_command()
+            except Exception as e:
+                console.log("[red]An error occurred on this request[/red]")
+                console.log(" ".join(sys.argv))
+                console.log(f"\nThe following error occurred:\n\n[red]{e}[/red]\n")

@@ -440,6 +440,7 @@ From the root directory, run the following command:
 pyinstaller -F \
  --name=promptlab \
  --add-data="sql:sql" \
+ --hidden-import=prompt_toolkit \
  main.py
 
 ```
