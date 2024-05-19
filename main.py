@@ -1,10 +1,10 @@
-import argparse
+from argparse import ArgumentParser, BooleanOptionalAction
 from rich.console import Console
 from rich import print
 from rich.table import Table
 from dotenv import load_dotenv, find_dotenv
-import ebooklib
 from ebooklib import epub
+from ebooklib import ITEM_DOCUMENT as ebooklib_ITEM_DOCUMENT
 from bs4 import BeautifulSoup
 import sqlite3
 import time
@@ -22,9 +22,9 @@ from pathlib import Path
 from faker import Faker
 import yaml
 from prompt_toolkit import PromptSession
-import shlex
+from shlex import split as shlex_split
 from art import text2art
-import sys
+from sys import exit
 
 
 console = Console()
@@ -406,7 +406,7 @@ def action_load():
         book = epub.read_epub(args.fn, {"ignore_ncx": True})
         idx = 0
         for item in book.get_items():
-            if item.get_type() == ebooklib.ITEM_DOCUMENT:
+            if item.get_type() == ebooklib_ITEM_DOCUMENT:
                 html = item.get_content().decode("utf-8")
                 data.append({"block": html, "tag": item.get_name(), "parent_id": 0})
                 idx += 1
@@ -645,9 +645,7 @@ def action_dump_prompts():
 # *****************************************************************************************
 def define_arguments(argString=None):
 
-    parser = argparse.ArgumentParser(
-        description="Mangage prommpts across long blocks of text"
-    )
+    parser = ArgumentParser(description="Mangage prommpts across long blocks of text")
     parser.add_argument(
         "action",
         choices=ACTIONS,
@@ -672,7 +670,7 @@ def define_arguments(argString=None):
         help="Generate fake prompt response data",
         required=False,
         default=False,
-        action=argparse.BooleanOptionalAction,
+        action=BooleanOptionalAction,
     )
     # Arguments related to transformation operations
     parser.add_argument(
@@ -714,7 +712,7 @@ def define_arguments(argString=None):
     )
 
     if argString:
-        return parser.parse_args(shlex.split(argString))
+        return parser.parse_args(shlex_split(argString))
     else:
         return parser.parse_args()
 
