@@ -645,7 +645,9 @@ def action_dump_prompts():
 # *****************************************************************************************
 def define_arguments(argString=None):
 
-    parser = ArgumentParser(description="Mangage prommpts across long blocks of text")
+    parser = ArgumentParser(
+        description="Mangage prommpts across long blocks of text", exit_on_error=False
+    )
     parser.add_argument(
         "action",
         choices=ACTIONS,
@@ -846,6 +848,9 @@ if __name__ == "__main__":
         session = PromptSession()
         while True:
             argString = session.prompt("promptlab> ")
+            # If the user just hits enter, skip parsing because it will exit the program
+            if len(argString) == 0:
+                continue
             if argString == "exit":
                 break
             try:

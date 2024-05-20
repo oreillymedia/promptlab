@@ -39,6 +39,10 @@ some text in markdown format for you to use summarize:
 
 This fully rendered text is sent to an LLM for completion. The process is repeated for the other blocks of content until all the sections you select are processed. You can then convert these resposes into new blocks or metadata, or just dump them out an save them in a file.
 
+You can run it in an interactive mode or as a script. To run it interactively, run `promptlab` with no arguments. You then enter commands at the prompt as if you were using the CLI.
+
+![promptlab interactive](misc/promptlab-repl.png)
+
 Finally, Promptlab can be used as part of a script to automate the process of generating prompts and responses. For example, here's an example of how tou might summarize the full contents of a book:
 
 ```bash
@@ -88,7 +92,7 @@ Finally, you can use the `dump` command to write the results to a file, or trans
 
 Once you've found the right set of transformations and filters, you can script the whole process to automate the generation of prompts and responses and save it as a bash script.
 
-Note that promptlab isn't meant to be a production tool -- it's mostly for exploratoy work to figure out how to structure your data and what prompts are effective for whatever you're trying to do. Once you've figured that out, it's likely that you would want to condense those operations into a single program that you can run at scale
+Note that promptlab isn't meant to be a production tool -- it's mostly for exploratoy work to figure out how to structure your data and what prompts are effective for whatever you're trying to do. Once you've figured that out, it's likely that you would want to condense those operations into a single program that you can run at scale.
 
 # Command Reference
 
@@ -437,7 +441,7 @@ From the root directory, run the following command:
 
 ```
 
-pyinstaller -F \
+pyinstaller \
  --name=promptlab \
  --add-data="sql:sql" \
  --hidden-import=prompt_toolkit \
