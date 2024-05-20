@@ -66,12 +66,12 @@ promptlab dump --source=prompts > key-points.md
 
 # Installation
 
-Promptlab uses Pyinstaller to create a single executable file. To install it, [download the latest release](https://github.com/oreillymedia/promptlab/releases) and put it somewhere in your path. You will likely also need to [enable it to run on a mac by changing the permissions](https://iboysoft.com/howto/cannot-be-opened-because-it-is-from-an-unidentified-developer.html).
+Promptlab uses Pyinstaller to create a single executable file. To install it, [download the latest release](https://github.com/oreillymedia/promptlab/releases), unzip it, and then put it somewhere in your path. You will likely also need to [enable it to run on a mac by changing the permissions](https://iboysoft.com/howto/cannot-be-opened-because-it-is-from-an-unidentified-developer.html).
 
 To test that it's working correctly, run:
 
 ```
-promptlab version
+./promptlab/promptlab/promptlab version
 ```
 
 Note that it's pretty slow to start. This is an artifact of the way Pyinstaller works when it builds a single file for distribution. Once it's running, it's pretty fast. I should probably make a REPL for it.
@@ -448,3 +448,11 @@ pyinstaller \
  main.py
 
 ```
+
+To view the sizes of the included files, cd into the `dist/_internal` directory and run:
+
+```
+du -hs *
+```
+
+Originally, I compiled this using `--onefile` but found that it became incredibly slow to start up. Ths seems to be a common complaint about pyinstaller. I think it also has to do with a virus scanner, which has to scan each file in the package as it's unzipped every time. So, I started just directibuting the dist folder. It's less convenient and clear, but gives an acceptable startup time.
