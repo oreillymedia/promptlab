@@ -25,6 +25,7 @@ from prompt_toolkit import PromptSession
 from shlex import split as shlex_split
 from art import text2art
 from sys import exit
+from os import system, chdir
 
 
 console = Console()
@@ -51,6 +52,10 @@ ACTIONS = [
     "version",
     "set-api-key",
     "merge-prompts-into-block",
+    "ls",
+    "cd",
+    "mkdir",
+    "pwd",
 ]
 TRANSFORMATIONS = [
     "token-split",
@@ -712,6 +717,8 @@ def define_arguments(argString=None):
         required=False,
         default="\n\n",
     )
+    # arguments related to files and the current directory
+    parser.add_argument("--dir", help="Directory name", required=False)
 
     if argString:
         return parser.parse_args(shlex_split(argString))
@@ -828,6 +835,31 @@ def process_command():
     if args.action == "merge-prompts-into-block":
         check_db(args.db)
         action_merge_prompts_into_block()
+        return
+
+    if args.action == "ls":
+        num_files = len(glob.glob("*"))
+        if num_files > 15:
+            system("ls -l | more")
+        else:
+            system("ls -l")
+        return
+
+    if args.action == "cd":
+        if not args.dir:
+            raise Exception("You must provide a --dir=<directory>")
+        path = os.path.expanduser(args.dir)
+        chdir(path)
+        return
+
+    if args.action == "mkdir":
+        if not args.dir:
+            raise Exception("You must provide a --dir=<directory>")
+        os.mkdir(args.dir)
+        return
+
+    if args.action == "pwd":
+        print(os.getcwd())
         return
 
 
