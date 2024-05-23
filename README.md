@@ -313,9 +313,10 @@ Generate prompts from a set of blocks based on metadata and a template, and then
 - `--prompt` (required) The name of the prompt template.
 - `--where` (optional) A SQL WHERE clause to filter the blocks that will be used to create the prompts.
 - `--model` (optional) The name of the openAI model to use. Defaults to gpt-4. You can see a list of models [here](https://platform.openai.com/docs/models/overview).
-- `--prompt_tag` (optional) A tag to use for the prompt.
+- `--prompt_tag` (optional) A tag to use for the prompt; this tag can be referred to later in queries.
 - `--globals` (optional) A YAML file with global metadata values that can be used in the prompt template.
 - `--fake` (optional) Generates a fake response data (mostly for testing)
+- `--preview` (optional) Prints the prompt and response to standard output without sending it to the LLM.
 
 ### Examples
 
@@ -445,6 +446,7 @@ pyinstaller \
  --name=promptlab \
  --add-data="sql:sql" \
  --hidden-import=prompt_toolkit \
+ --noconfirm \
  main.py
 
 ```

@@ -125,7 +125,7 @@ def load_system_file(fn):
 
 
 def load_user_file(fn):
-    return load_file(fn, False)
+    return load_file(os.path.expanduser(fn), False)
 
 
 def hash(txt):
@@ -492,6 +492,16 @@ def action_prompt(prompt_fn):
     idx = 1
     for b in blocks:
         prompt_text = template.render(block=b["block"], **metadata)
+        # Check if we're only previwewing the prompt.  If so, print it andbreak the loop
+        if args.preview:
+            console.log(
+                f"({idx}/{len(blocks)}) Previewing block",
+                b["block_id"],
+                b["block_tag"],
+                b["block"][:40].replace("\n", " "),
+            )
+            print("\n\n", prompt_text, "\n\n")
+            break
         if response_already_exists(prompt_text):
             console.log(
                 f"({idx}/{len(blocks)}) Prompt already exists for",
@@ -675,6 +685,13 @@ def define_arguments(argString=None):
     parser.add_argument(
         "--fake",
         help="Generate fake prompt response data",
+        required=False,
+        default=False,
+        action=BooleanOptionalAction,
+    )
+    parser.add_argument(
+        "--preview",
+        help="Generate the prompt with metadata only (not submitted to LLM)",
         required=False,
         default=False,
         action=BooleanOptionalAction,
