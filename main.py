@@ -2,7 +2,6 @@ from argparse import ArgumentParser, BooleanOptionalAction
 from rich.console import Console
 from rich import print
 from rich.table import Table
-from dotenv import load_dotenv, find_dotenv
 from ebooklib import epub
 from ebooklib import ITEM_DOCUMENT as ebooklib_ITEM_DOCUMENT
 from bs4 import BeautifulSoup
@@ -12,13 +11,12 @@ import shutil
 import os
 from jinja2 import Template
 import sys
-import openai
 import hashlib
 import logging
 import glob
 from transformations import *
+from completions import *
 import os
-from pathlib import Path
 from faker import Faker
 import yaml
 from prompt_toolkit import PromptSession
@@ -34,9 +32,9 @@ log = logging.getLogger("rich")
 
 VERSION = "0.3.0"
 
-ENV_FILENAME = ".promptlab"
 
 ACTIONS = [
+    "auth",
     "init",
     "load",
     "transform",
@@ -56,6 +54,7 @@ ACTIONS = [
     "cd",
     "mkdir",
     "pwd",
+    "models",
 ]
 TRANSFORMATIONS = [
     "token-split",
@@ -78,29 +77,6 @@ def check_db(fn):
         console.log(f"Database file {fn} does not exist.")
         console.log("Check the filename or run init to create a new database.")
         raise Exception(f"Database file {fn} does not exist.")
-
-
-# Check if the .promptlab file exists in the home directory
-def load_env():
-    home = str(Path.home())
-    if not os.path.isfile(home + "/" + ENV_FILENAME):
-        return False
-    load_dotenv(home + "/" + ENV_FILENAME)
-    console.log(f"Loaded API key from {home}/{ENV_FILENAME}")
-    return True
-
-
-# Write the API key to the .promptlab file in the home directory
-def action_set_api_key():
-    console.log("Setting API key")
-    home = str(Path.home())
-    # get user input for api key
-    api_key = input("Enter your API key: ")
-    # write the key to the .promptlab file
-    console.log(f"Missing credentials in file {home}/{ENV_FILENAME}.")
-    with open(home + "/" + ENV_FILENAME, "w") as f:
-        f.write(f"API_KEY={api_key}")
-    console.log(f"API key set successfully and saved in {home}/{ENV_FILENAME}")
 
 
 # Loads a file eirher from the current directory or from the directory
@@ -480,7 +456,6 @@ def action_transform(transformation):
 
 
 def action_prompt(prompt_fn):
-    openai.api_key = os.environ["API_KEY"]
     prompt = load_user_file(prompt_fn)
     metadata = {}
     if args.globals is not None:
@@ -522,13 +497,7 @@ def action_prompt(prompt_fn):
         if args.fake:
             response_txt = fake.text(500)
         else:
-            response = openai.ChatCompletion.create(
-                model=args.model,
-                messages=[{"role": "user", "content": prompt_text}],
-                temperature=0.1,
-                max_tokens=1000,
-            )
-            response_txt = str(response.choices[0].message.content)
+            response_txt = complete(args, prompt_text)
         idx += 1
         end = time.time()
         # Save the response to the database
@@ -681,7 +650,12 @@ def define_arguments(argString=None):
     parser.add_argument("--where", help="SQLITE where clause", required=False)
     # Arguments related to prompting
     parser.add_argument("--prompt", help="Prompt to use", required=False)
-    parser.add_argument("--model", help="Model to use", required=False, default="gpt-4")
+    parser.add_argument(
+        "--model", help="Model to use", required=False, default="gpt-4o"
+    )
+    parser.add_argument(
+        "--provider", help="LLM service provider", required=False, default="openai"
+    )
     parser.add_argument(
         "--fake",
         help="Generate fake prompt response data",
@@ -758,6 +732,10 @@ def process_command():
         action_load()
         return
 
+    if args.action == "auth":
+        action_set_api_key()
+        return
+
     if args.action == "transform":
         check_db(args.db)
         if args.transformation is None:
@@ -795,9 +773,6 @@ def process_command():
         console.log(args.fn)
         if args.fn is None:
             raise Exception("You must provide a --fn argument for the prompt")
-        if load_env() is False:
-            action_set_api_key()
-            load_env()
         action_prompt(args.fn)
         return
 
@@ -877,6 +852,11 @@ def process_command():
 
     if args.action == "pwd":
         print(os.getcwd())
+        return
+
+    if args.action == "models":
+        models = action_models(args)
+        console.log(models)
         return
 
 

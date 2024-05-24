@@ -312,7 +312,7 @@ Generate prompts from a set of blocks based on metadata and a template, and then
 
 - `--prompt` (required) The name of the prompt template.
 - `--where` (optional) A SQL WHERE clause to filter the blocks that will be used to create the prompts.
-- `--model` (optional) The name of the openAI model to use. Defaults to gpt-4. You can see a list of models [here](https://platform.openai.com/docs/models/overview).
+- `--model` (optional) The name of the model to use in the format `provider:model`, where provider is `openai` or `groq`, and model is the name of the model. The default is `openai:gpt-4o`. You can find the names of the models for each provider by running `promptlab models --provider=openai|groq`.
 - `--prompt_tag` (optional) A tag to use for the prompt; this tag can be referred to later in queries.
 - `--globals` (optional) A YAML file with global metadata values that can be used in the prompt template.
 - `--fake` (optional) Generates a fake response data (mostly for testing)
@@ -336,6 +336,22 @@ Prompt and provide global metadata from a file:
 
 ```
 promptlab prompt --fn=extract-key-points.jinja --globals=metadata.yml
+```
+
+## `models`
+
+Prints all models available for a provider.
+
+### Arguments
+
+- `--provider` (required) The name of the provider. Options are `openai` or `groq`.
+
+### Examples
+
+Print all models for OpenAI:
+
+```
+promptlab models --provider=openai
 ```
 
 ## `prompts`

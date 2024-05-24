@@ -12,3 +12,4 @@ Faker
 pyyaml
 art
 prompt_toolkit
+groq
