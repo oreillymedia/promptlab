@@ -194,6 +194,7 @@ The `filter` command creates a new group of blocks by applying a filter to the c
 ### Arguments
 
 - `--where` (required) A SQL WHERE clause to filter the blocks in the current group.
+- `--order` (optional) A SQL ORDER BY clause to order the results.
 - `--group_tag` (optional) The tag to use for the new group.
 
 ### Examples
@@ -217,6 +218,7 @@ Lists all groups.
 ### Arguments
 
 - `--where` (optional) A SQL WHERE clause to filter the results
+- `--order` (optional) A SQL ORDER BY clause to order the results.
 
 ### Examples
 
@@ -253,6 +255,7 @@ List all blocks in the current group:
 ### Arguments
 
 - `--where` (optional) A SQL WHERE clause to filter the results. Running `promplab blocks` will show the columns available for filtering. These are currently `['block_id', 'block_tag', 'parent_block_id', 'group_id', 'group_tag', 'block', 'token_count']`
+- `--order` (optional) A SQL ORDER BY clause to order the results.
 
 ### Examples
 
@@ -282,6 +285,7 @@ Write blocks or prompts to standard output.
 
 - `--source` (required) The source to dump. Options are `blocks` or `prompts`.
 - `--where` (optional) A SQL WHERE clause to filter the results. Running `promplab blocks` will show the columns available for filtering. These are currently `['block_id', 'block_tag', 'parent_block_id', 'group_id', 'group_tag', 'block', 'token_count']`
+- `--order` (optional) A SQL ORDER BY clause to order the results.
 - `--delimiter` (optional) The delimiter to use when joining the blocks. Default is a newline.
 
 ### Examples
@@ -312,6 +316,7 @@ Generate prompts from a set of blocks based on metadata and a template, and then
 
 - `--prompt` (required) The name of the prompt template.
 - `--where` (optional) A SQL WHERE clause to filter the blocks that will be used to create the prompts.
+- `--order` (optional) A SQL ORDER BY clause to order the results.
 - `--model` (optional) The name of the model to use in the format `provider:model`, where provider is `openai` or `groq`, and model is the name of the model. The default is `openai:gpt-4o`. You can find the names of the models for each provider by running `promptlab models --provider=openai|groq`.
 - `--prompt_tag` (optional) A tag to use for the prompt; this tag can be referred to later in queries.
 - `--globals` (optional) A YAML file with global metadata values that can be used in the prompt template.
@@ -361,6 +366,7 @@ Prints all prompts to standard output.
 ### Arguments
 
 - `--where` (optional) A SQL WHERE clause to filter the results. Running `promplab prompts` will show the columns available for filtering. These are currently `['prompt_id', 'block_id', 'prompt', 'response', 'model', 'prompt_tag', 'created_at']`
+- `--order` (optional) A SQL ORDER BY clause to order the results.
 
 ### Examples
 
@@ -383,6 +389,7 @@ Convert prompts into blocks or metadata. This is useful is you want to do later 
 ### Arguments
 
 - `--where` (optional) A SQL WHERE clause to filter the results. Running `promplab transfer-prompts` will show the columns available for filtering. These are currently `['prompt_id', 'block_id', 'prompt', 'response', 'model', 'prompt_tag', 'created_at']`
+- `--order` (optional) A SQL ORDER BY clause to order the results.
 - `--to` (required) The type of object to transfer the prompts to. Options are `blocks` or `metadata`.
 - `--metadata_key` (optional) The key to use for the metadata. Only valid when `--to=metadata`.
 

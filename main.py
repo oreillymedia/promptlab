@@ -124,9 +124,12 @@ def generate_slug(length):
 
 
 # Used to get the where clause.  I'll add something about ssql injection here later
-def apply_where_clause(sql):
+def apply_sql_clauses(sql):
     if args.where is not None:
         sql += " where " + args.where
+    if args.order is not None:
+        sql += " order by " + args.order
+    print(sql)
     return sql
 
 
@@ -274,14 +277,10 @@ def create_block(c, group_id, block, tag, parent_id):
 
 # fetch blocks and apply where clause if it exists
 # TODO: something arouns sql injection here. there is probbaly a python library
-def fetch_blocks(tag=None, latest=True, sort_by=None):
+def fetch_blocks():
     sql = load_system_file("sql/v_current_blocks.sql")
-    sql = apply_where_clause(sql)
+    sql = apply_sql_clauses(sql)
     headers, results = fetch_from_db(sql, ())
-    if sort_by is not None:
-        results = sorted(results, key=lambda d: d[sort_by])
-    else:
-        results = sorted(results, key=lambda d: d[headers[0]])
     return headers, results
 
 
@@ -532,13 +531,13 @@ def action_filter():
 
 def fetch_prompts():
     sql = load_system_file("sql/v_current_prompts.sql")
-    sql = apply_where_clause(sql)
+    sql = apply_sql_clauses(sql)
     return fetch_from_db(sql, ())
 
 
 def action_merge_prompts_into_block():
     sql = load_system_file("sql/v_current_prompts.sql")
-    sql = apply_where_clause(sql)
+    sql = apply_sql_clauses(sql)
     headers, results = fetch_from_db(sql, ())
     # merge the results into single string , grouping by the parent_block column
     merged_results = {}
@@ -588,7 +587,7 @@ def action_groups():
 
 def action_prompt_log():
     sql = load_system_file("sql/fetch_prompt_log.sql")
-    sql = apply_where_clause(sql)
+    sql = apply_sql_clauses(sql)
     headers, results = fetch_from_db(sql, ())
     results = sorted(results, key=lambda d: d[headers[0]])
     print_results("Prompt Logs", headers, results)
@@ -596,7 +595,7 @@ def action_prompt_log():
 
 def action_prompts():
     sql = load_system_file("sql/v_current_prompts.sql")
-    sql = apply_where_clause(sql)
+    sql = apply_sql_clauses(sql)
     columns, results = fetch_from_db(sql, ())
     results = transform_by_key(
         results,
@@ -648,6 +647,7 @@ def define_arguments(argString=None):
     parser.add_argument("--group_tag", help="Tag to filter on", required=False)
     parser.add_argument("--prompt_tag", help="Tag to filter on", required=False)
     parser.add_argument("--where", help="SQLITE where clause", required=False)
+    parser.add_argument("--order", help="SQLITE order by clause", required=False)
     # Arguments related to prompting
     parser.add_argument("--prompt", help="Prompt to use", required=False)
     parser.add_argument(
