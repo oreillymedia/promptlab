@@ -73,10 +73,7 @@ def load_env():
 def openai_completion(args, config, text):
     openai.api_key = config["openai"]
     response = openai.ChatCompletion.create(
-        model=args.model,
-        messages=[{"role": "user", "content": text}],
-        temperature=0.1,
-        max_tokens=1000,
+        model=args.model, messages=[{"role": "user", "content": text}], temperature=0.1
     )
     response_txt = str(response.choices[0].message.content)
     return response_txt

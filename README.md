@@ -111,6 +111,7 @@ Promptlab has the following commands:
 - `version` - show the version of the software
 - `set-api-key` - set the api key used for the LLM
 - `dump` - write blocks or prompts to standard output
+- `squash` - concatenates all prompts with the same block tag into a new block; useful when recombining prompts computed from segments of a total work.
 
 ## `init`
 

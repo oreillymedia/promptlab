@@ -24,6 +24,7 @@ from shlex import split as shlex_split
 from art import text2art
 from sys import exit
 from os import system, chdir
+import traceback
 
 
 console = Console()
@@ -49,7 +50,7 @@ ACTIONS = [
     "set-group",
     "version",
     "set-api-key",
-    "merge-prompts-into-block",
+    "squash",
     "ls",
     "cd",
     "mkdir",
@@ -123,13 +124,14 @@ def generate_slug(length):
     return fake.slug()
 
 
-# Used to get the where clause.  I'll add something about ssql injection here later
-def apply_sql_clauses(sql):
-    if args.where is not None:
-        sql += " where " + args.where
-    if args.order is not None:
-        sql += " order by " + args.order
-    print(sql)
+# Used to get the where clause.  I'll add something about sql injection here later
+def apply_sql_clauses(sql, where=None, order=None):
+    where_final = where if where is not None else args.where
+    order_final = order if order is not None else args.order
+    if where_final is not None:
+        sql += " where " + where_final
+    if order_final is not None:
+        sql += " order by " + order_final
     return sql
 
 
@@ -195,7 +197,7 @@ def read_metadata(fn):
 
 
 # Takes prompts and converts them to metadata under the supplied key
-def action_transfer_prompts_to_metadata(prompt_tag, metadata_key):
+def action_transfer_prompts_to_metadata():
     header, results = fetch_prompts()
     try:
         sql = load_system_file("sql/create_metadata.sql")
@@ -204,7 +206,7 @@ def action_transfer_prompts_to_metadata(prompt_tag, metadata_key):
         c = conn.cursor()
         c.execute("BEGIN")
         for r in results:
-            c.execute(sql, (r["block_id"], metadata_key, r["response"]))
+            c.execute(sql, (r["block_id"], args.metadata_key, r["response"]))
         conn.commit()
     except Exception as e:
         console.log("Unable to process request:", e)
@@ -400,15 +402,31 @@ def action_load():
     insert_blocks_in_new_group(data)
 
 
-def action_transfer_prompts_to_blocks(prompt_tag):
+def action_transfer_prompts_to_blocks():
     headers, results = fetch_prompts()
-    # print_results("Prompts to transfer", headers, results)
+    print("Found headers", headers)
     data = []
     for p in results:
         data.append(
-            {"block": p["response"], "tag": p["block_tag"], "parent_id": p["parent_id"]}
+            {
+                "block": p["response"],
+                "tag": p["block_tag"],
+                "parent_id": p["block_parent_id"],
+            }
         )
     insert_blocks_in_new_group(data)
+
+
+def action_squash():
+    # See https://stackoverflow.com/questions/3926162/group-different-rows-in-one-by-combining-strings
+    sql = load_system_file("sql/v_squash_current_prompts.sql")
+    headers, results = fetch_from_db(sql, (get_delimiter(),))
+    # data = []
+    # for r in results:
+    #    data.append(
+    #        {"block": r["block"], "tag": r["block_tag"], "parent_id": r["parent_id"]}
+    #    )
+    insert_blocks_in_new_group(results)
 
 
 def action_transform(transformation):
@@ -533,24 +551,6 @@ def fetch_prompts():
     sql = load_system_file("sql/v_current_prompts.sql")
     sql = apply_sql_clauses(sql)
     return fetch_from_db(sql, ())
-
-
-def action_merge_prompts_into_block():
-    sql = load_system_file("sql/v_current_prompts.sql")
-    sql = apply_sql_clauses(sql)
-    headers, results = fetch_from_db(sql, ())
-    # merge the results into single string , grouping by the parent_block column
-    merged_results = {}
-    for r in results:
-        if r["block_parent_id"] not in merged_results:
-            merged_results[r["block_parent_id"]] = []
-        merged_results[r["block_parent_id"]].append(r["response"])
-    out = []
-    tag = "merged_prompts"
-    for k in merged_results.keys():
-        new_block = get_delimiter().join(merged_results[k])
-        out.append({"block": new_block, "tag": tag, "parent_id": int(k)})
-    insert_blocks_in_new_group(out)
 
 
 # *****************************************************************************************
@@ -811,9 +811,9 @@ def process_command():
         if args.to == "metadata" and args.metadata_key is None:
             raise Exception("You must provide a --metadata_key")
         if args.to == "metadata":
-            action_transfer_prompts_to_metadata(args.prompt_tag, args.metadata_key)
+            action_transfer_prompts_to_metadata()
         elif args.to == "blocks":
-            action_transfer_prompts_to_blocks(args.prompt_tag)
+            action_transfer_prompts_to_blocks()
         else:
             raise Exception("Unknown transfer target", args.to)
 
@@ -824,9 +824,9 @@ def process_command():
         action_filter()
         return
 
-    if args.action == "merge-prompts-into-block":
+    if args.action == "squash":
         check_db(args.db)
-        action_merge_prompts_into_block()
+        action_squash()
         return
 
     if args.action == "ls":
@@ -870,6 +870,7 @@ if __name__ == "__main__":
             console.log("[red]An error occurred on this request[/red]")
             console.log(" ".join(sys.argv))
             console.log(f"\nThe following error occurred:\n\n[red]{e}[/red]\n")
+            print(traceback.format_exc())
             sys.exit(1)
     else:
         Art = text2art("Promptlab")
@@ -889,3 +890,4 @@ if __name__ == "__main__":
                 console.log("[red]An error occurred on this request[/red]")
                 console.log(" ".join(sys.argv))
                 console.log(f"\nThe following error occurred:\n\n[red]{e}[/red]\n")
+                print(traceback.format_exc())

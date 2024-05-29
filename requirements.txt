@@ -13,3 +13,4 @@ pyyaml
 art
 prompt_toolkit
 groq
+pytest
