@@ -288,6 +288,8 @@ Write blocks or prompts to standard output.
 - `--where` (optional) A SQL WHERE clause to filter the results. Running `promplab blocks` will show the columns available for filtering. These are currently `['block_id', 'block_tag', 'parent_block_id', 'group_id', 'group_tag', 'block', 'token_count']`
 - `--order` (optional) A SQL ORDER BY clause to order the results.
 - `--delimiter` (optional) The delimiter to use when joining the blocks. Default is a newline.
+- `--dir` (optional) The directory to write the files to. Default is standard output.
+- `--extension` (optional) The extension to use for the files. Default is `txt`.
 
 ### Examples
 
@@ -306,7 +308,13 @@ dump --source=blocks --where="block_tag like 'part03%'"
 Dump all blocks with a comma delimiter:
 
 ```
-promptlab dump --source=blocks --delimiter=","
+dump --source=blocks --delimiter=","
+```
+
+Save all blocks to a file:
+
+```
+dump  --dir="~/Desktop/test"
 ```
 
 ## `prompt`

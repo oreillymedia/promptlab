@@ -393,7 +393,7 @@ def action_load():
                 data.append({"block": html, "tag": item.get_name(), "parent_id": 0})
                 idx += 1
     else:
-        files = glob.glob(args.fn)
+        files = sort(glob.glob(args.fn))
         idx = 0
         for f in files:
             txt = load_user_file(f)
@@ -607,8 +607,15 @@ def action_prompts():
 def action_dump_blocks():
     headers, blocks = fetch_blocks()
     # Pull out the block element into it's own list
-    out = [b["block"] for b in blocks]
-    console.print(get_delimiter().join(out))
+    if args.dir is None:
+        out = [b["block"] for b in blocks]
+        console.print(get_delimiter().join(out))
+    else:
+        for idx, b in enumerate(blocks):
+            fn = f"{os.path.expanduser(args.dir)}/{b['block_tag']}.{idx:05d}.{args.extension}"
+            with open(fn, "w") as f:
+                f.write(b["block"])
+                console.log("Wrote block to", fn)
 
 
 def action_dump_prompts():
@@ -703,11 +710,10 @@ def define_arguments(argString=None):
         default="\n\n",
     )
     parser.add_argument(
-        "--file",
-        help="Save dumped data to a file",
+        "--extension",
+        help="Extension to use when saving dumped data",
         required=False,
-        default=False,
-        action=BooleanOptionalAction,
+        default="md",
     )
     # arguments related to files and the current directory
     parser.add_argument("--dir", help="Directory name", required=False)
