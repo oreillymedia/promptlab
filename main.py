@@ -421,11 +421,6 @@ def action_squash():
     # See https://stackoverflow.com/questions/3926162/group-different-rows-in-one-by-combining-strings
     sql = load_system_file("sql/v_squash_current_prompts.sql")
     headers, results = fetch_from_db(sql, (get_delimiter(),))
-    # data = []
-    # for r in results:
-    #    data.append(
-    #        {"block": r["block"], "tag": r["block_tag"], "parent_id": r["parent_id"]}
-    #    )
     insert_blocks_in_new_group(results)
 
 
@@ -684,7 +679,6 @@ def define_arguments(argString=None):
         required=False,
         default="metadata",
     )
-    # Arguments related to tranferring data from prompts to metadata or blocks
     parser.add_argument(
         "--source",
         help="Source to dump from",
@@ -707,6 +701,13 @@ def define_arguments(argString=None):
         help="Delimiter to use when dumping prompts",
         required=False,
         default="\n\n",
+    )
+    parser.add_argument(
+        "--file",
+        help="Save dumped data to a file",
+        required=False,
+        default=False,
+        action=BooleanOptionalAction,
     )
     # arguments related to files and the current directory
     parser.add_argument("--dir", help="Directory name", required=False)
