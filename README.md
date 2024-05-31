@@ -284,7 +284,7 @@ Write blocks or prompts to standard output.
 
 ### Arguments
 
-- `--source` (required) The source to dump. Options are `blocks` or `prompts`.
+- `--source` (required) The source to dump. Options are `blocks` or `prompts`. Default is `blocks`.
 - `--where` (optional) A SQL WHERE clause to filter the results. Running `promplab blocks` will show the columns available for filtering. These are currently `['block_id', 'block_tag', 'parent_block_id', 'group_id', 'group_tag', 'block', 'token_count']`
 - `--order` (optional) A SQL ORDER BY clause to order the results.
 - `--delimiter` (optional) The delimiter to use when joining the blocks. Default is a newline.
@@ -434,6 +434,31 @@ Sets the API key used for the LLM. This is required to use the `prompt` command.
 
 ```
 promptlab set-api-key
+```
+
+## `run`
+
+Runs a script that contains a series of commands. This is useful for automating the process of generating prompts and responses.
+
+### Arguments
+
+- `--fn` (required) The name of the script file to run.
+
+### Examples
+
+```
+promptlab run --fn=script.promptlab
+```
+
+The `script.promptlab` file might look like this:
+
+```
+cd --dir=~/Desktop/content/test
+init
+load --fn=test.txt --group_tag="raw"
+blocks --where="group_tag='raw'"
+transform --transformation="sentence-split"
+blocks --order=block_id
 ```
 
 # Development

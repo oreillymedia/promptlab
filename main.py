@@ -56,6 +56,8 @@ ACTIONS = [
     "mkdir",
     "pwd",
     "models",
+    "run",
+    "exit",
 ]
 TRANSFORMATIONS = [
     "token-split",
@@ -393,7 +395,7 @@ def action_load():
                 data.append({"block": html, "tag": item.get_name(), "parent_id": 0})
                 idx += 1
     else:
-        files = sort(glob.glob(args.fn))
+        files = sorted(glob.glob(args.fn))
         idx = 0
         for f in files:
             txt = load_user_file(f)
@@ -866,13 +868,38 @@ def process_command():
         console.log(models)
         return
 
+    if args.action == "exit":
+        console.log("Bye!")
+        sys.exit(0)
 
+
+# accepts a command
+def run():
+    commands = load_user_file(args.fn)
+    for command in commands.split("\n"):
+        args = define_arguments(command)
+        process_command()
+
+
+# *****************************************************************************************
+# Main
+# *****************************************************************************************
 if __name__ == "__main__":
-
     if len(sys.argv) > 1:
         args = define_arguments()
         try:
-            process_command()
+            if args.action == "run":
+                if args.fn is None:
+                    raise Exception(
+                        "You must provide a --fn argument for the file to run"
+                    )
+                instructions = load_user_file(args.fn)
+                for instruction in instructions.split("\n"):
+                    print(instruction)
+                    args = define_arguments(instruction)
+                    process_command()
+            else:
+                process_command()
         except Exception as e:
             console.log("[red]An error occurred on this request[/red]")
             console.log(" ".join(sys.argv))
@@ -892,7 +919,18 @@ if __name__ == "__main__":
                 break
             try:
                 args = define_arguments(argString)
-                process_command()
+                if args.action == "run":
+                    if args.fn is None:
+                        raise Exception(
+                            "You must provide a --fn argument for the file to run"
+                        )
+                    instructions = load_user_file(args.fn)
+                    for instruction in instructions.split("\n"):
+                        print(instruction)
+                        args = define_arguments(instruction)
+                        process_command()
+                else:
+                    process_command()
             except Exception as e:
                 console.log("[red]An error occurred on this request[/red]")
                 console.log(" ".join(sys.argv))
