@@ -877,6 +877,9 @@ def process_command():
 def run():
     commands = load_user_file(args.fn)
     for command in commands.split("\n"):
+        # skip lines that start with a #
+        if command.strip().startswith("#"):
+            continue
         args = define_arguments(command)
         process_command()
 
