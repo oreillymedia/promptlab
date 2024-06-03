@@ -899,6 +899,8 @@ if __name__ == "__main__":
                 instructions = load_user_file(args.fn)
                 for instruction in instructions.split("\n"):
                     print(instruction)
+                    if command.strip().startswith("#"):
+                        continue
                     args = define_arguments(instruction)
                     process_command()
             else:
@@ -918,6 +920,10 @@ if __name__ == "__main__":
             # If the user just hits enter, skip parsing because it will exit the program
             if len(argString) == 0:
                 continue
+            # In the command is a comment then exit
+            if argString.strip().startswith("#"):
+                print("Skipping comment")
+                continue
             if argString == "exit":
                 break
             try:
@@ -929,7 +935,8 @@ if __name__ == "__main__":
                         )
                     instructions = load_user_file(args.fn)
                     for instruction in instructions.split("\n"):
-                        print(instruction)
+                        if instruction.strip().startswith("#"):
+                            continue
                         args = define_arguments(instruction)
                         process_command()
                 else:
